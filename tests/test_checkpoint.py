@@ -19,7 +19,7 @@ REDIS_URL = os.getenv(
 
 
 class CheckpointState(TypedDict):
-    mensaje: str
+    message: str
 
 
 @pytest_asyncio.fixture

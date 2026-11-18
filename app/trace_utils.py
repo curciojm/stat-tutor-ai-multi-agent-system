@@ -19,7 +19,7 @@ def extract_text(message) -> str:
 
     return str(content)
 
-def serializar_traza(message) -> list[dict]:
+def serialize_trace(message) -> list[dict]:
     """Transform langraph messages to json."""
     traza = []
 
@@ -48,7 +48,7 @@ def serializar_traza(message) -> list[dict]:
 
     return traza
 
-def guardar_traza(trace: list[dict], thread_id: str) -> None:
+def save_trace(trace: list[dict], thread_id: str) -> None:
     """Save ReAct trace from a conversation in json format."""
     path = Path("traces") / f"{thread_id}.json"
     path.parent.mkdir(parents=True, exist_ok=True)

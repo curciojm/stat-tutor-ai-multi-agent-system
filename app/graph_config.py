@@ -64,7 +64,7 @@ graph.add_conditional_edges(
 )
 
 graph.add_conditional_edges(
-    "evaluevaluatorador",
+    "evaluator",
     ruting_after_evaluator,
     {
         "supervisor": "supervisor",

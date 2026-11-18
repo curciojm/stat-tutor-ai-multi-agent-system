@@ -10,7 +10,7 @@ from redis import asyncio as aioredis
 from app.graph_config import graph
 from app.logging_config import logger
 from app.observability import configurar_observabilidad
-from app.trace_utils import guardar_traza, serializar_traza
+from app.trace_utils import save_trace, serialize_trace
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
@@ -158,13 +158,13 @@ async def approval_processing(job_id, app):
                 job_id
             )
 
-            trace = serializar_traza(
+            trace = serialize_trace(
                 result["messages"]
             )
 
             trace.extend(eventos_humanos)
 
-            guardar_traza(
+            save_trace(
                 result,
                 job_id
             )
@@ -286,11 +286,11 @@ async def main_worker():
 
                     else:
 
-                        traza = serializar_traza(
+                        traza = serialize_trace(
                             result["messages"]
                         )
 
-                        guardar_traza(
+                        save_trace(
                             traza,
                             job_id,
                         )

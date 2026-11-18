@@ -116,7 +116,7 @@ async def test_main_worker_completes_task_successfully():
             "app.worker.AsyncRedisSaver.from_conn_string",
             return_value=FakeSaver(),
         ),
-        patch("app.worker.serializar_traza", return_value=[]),
+        patch("app.worker.serialize_trace", return_value=[]),
         patch("app.worker.save_trace"),
         patch(
             "app.worker.asyncio.sleep",
@@ -243,7 +243,7 @@ async def test_procesar_aprobacion_completa_tarea_exitosamente():
             new_callable=AsyncMock,
         ) as save_event,
         patch(
-            "app.worker.obtener_eventos_humanos",
+            "app.worker.get_human_events",
             new_callable=AsyncMock,
             return_value=[
                 {
@@ -253,7 +253,7 @@ async def test_procesar_aprobacion_completa_tarea_exitosamente():
                 }
             ],
         ),
-        patch("app.worker.serializar_traza", return_value=[]),
+        patch("app.worker.serialize_trace", return_value=[]),
         patch("app.worker.save_trace") as save_trace,
     ):
         await approval_processing(job_id, fake_app)
@@ -371,7 +371,7 @@ async def test_process_approval_returns_to_waiting_for_approval():
     with (
         patch("app.worker.redis_client", fake_redis),
         patch(
-            "app.worker.guardar_evento_humano",
+            "app.worker.save_human_event",
             new_callable=AsyncMock,
         ) as save_event,
     ):
@@ -425,7 +425,7 @@ async def test_process_approval_fails_if_human_event_cannot_be_saved():
     with (
         patch("app.worker.redis_client", fake_redis),
         patch(
-            "app.worker.guardar_evento_humano",
+            "app.worker.save_human_event",
             new_callable=AsyncMock,
             side_effect=ConnectionError("Redis no disponible"),
         ) as save_event,
