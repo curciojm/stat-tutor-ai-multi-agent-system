@@ -1,73 +1,92 @@
-# Sistema multiagente de tutoría en Estadística y Metodología
+# TeMa — AI-Powered Academic Tutoring System
 
-Sistema inteligente de tutoría académica basado en agentes especializados, recuperación híbrida de información (RAG), evaluación de respuestas y supervisión humana. La aplicación integra una API asíncrona, procesamiento en segundo plano, persistencia del estado y observabilidad de las ejecuciones.
+An AI-powered academic tutoring system for Statistics and Research Methodology, featuring multi-agent orchestration, hybrid Retrieval-Augmented Generation (RAG), semantic answer evaluation, and human-in-the-loop review.
 
-## Descripción general
+This repository contains the AI and RAG backend of **TeMa**, built with LangGraph, FastAPI, Redis, and Pinecone. It evolves the project's original Django-based implementation into an asynchronous, multi-agent architecture.
 
-El sistema permite que un usuario solicite explicaciones de conceptos de Estadística y Metodología de la Investigación, consulte fuentes bibliográficas o reciba una evaluación de sus respuestas.
-
-La arquitectura utiliza un grafo de agentes coordinado por un supervisor. Los agentes especializados consultan una base de conocimientos mediante un recuperador híbrido que combina búsqueda léxica y similitud semántica. Cuando corresponde, el flujo incorpora una instancia de revisión humana antes de continuar con la evaluación y la síntesis de la respuesta final.
-
-La aplicación expone sus funcionalidades mediante una API REST desarrollada con FastAPI. Las tareas se procesan de manera asíncrona mediante una cola de Redis y un Worker independiente. LangGraph administra el flujo de ejecución y permite persistir el estado necesario para interrumpir y reanudar las tareas.
-
-El proyecto incorpora observabilidad mediante Arize Phoenix, instrumentación con OpenInference, registro de trazas en JSON y tests automatizados.
-
-## Arquitectura del sistema
-
-```text
-                         Cliente
-                            |
-                            v
-                     FastAPI / REST
-                            |
-                 +----------+----------+
-                 |                     |
-                 v                     v
-           Estado en Redis       Cola de tareas
-                                       |
-                                       v
-                                     Worker
-                                       |
-                                       v
-                                    LangGraph
-                                       |
-                                   Supervisor
-                                       |
-                      +----------------+----------------+
-                      |                                 |
-                      v                                 v
-                Agente profesor                 Agente evaluador
-                      |                                 |
-                      +----------------+----------------+
-                                       |
-                              Recuperador híbrido
-                                       |
-                              Base de conocimientos
-                                       |
-                                       v
-                              Revisión humana (HITL)
-                                       |
-                                       v
-                                    Síntesis
-                                       |
-                                       v
-                                  Resultado final
-```
-
-El diagrama representa los componentes principales y sus relaciones funcionales. El orden efectivo de ejecución depende de las decisiones del supervisor y de las condiciones definidas en el grafo.
+**Previous implementation:** [TeMa — Django-based application](tema-production-31a3.up.railway.app)
 
 ---
 
-## Arquitectura multiagente
+## Overview
 
-El sistema utiliza una topología jerárquica en la que un Supervisor coordina dos agentes especializados: un Profesor, orientado a consultas conceptuales, y un Evaluador, encargado de analizar las respuestas de los estudiantes.
+TeMa allows users to:
+
+- Request explanations of concepts in Statistics and Research Methodology.
+- Retrieve relevant bibliographic sources and page references.
+- Submit their own answers for conceptual evaluation.
+- Receive feedback and suggestions for improving their understanding.
+- Participate in a human-in-the-loop review process when an evaluation requires supervision.
+
+The system uses a hierarchical multi-agent architecture coordinated by a Supervisor. Two specialized agents handle conceptual questions and answer evaluation, respectively. Both can retrieve information from a knowledge base through a hybrid retrieval system combining lexical search and semantic similarity.
+
+The application exposes its functionality through an asynchronous REST API. Redis manages task queues and application state, while an independent Worker executes the LangGraph workflow in the background.
+
+LangGraph checkpointing allows workflow execution to be interrupted and resumed, supporting human review without losing the execution state.
+
+Observability is provided through Arize Phoenix and OpenInference instrumentation. The project also includes JSON execution traces and automated tests.
+
+## System architecture
+
+```text
+                         Client
+                           |
+                           v
+                     FastAPI / REST
+                           |
+                 +---------+---------+
+                 |                   |
+                 v                   v
+           Redis State          Task Queue
+                                     |
+                                     v
+                                   Worker
+                                     |
+                                     v
+                                 LangGraph
+                                     |
+                                 Supervisor
+                                     |
+                    +----------------+----------------+
+                    |                                 |
+                    v                                 v
+              Teacher Agent                    Evaluator Agent
+                    |                                 |
+                    +----------------+----------------+
+                                     |
+                              Hybrid Retriever
+                                     |
+                              Knowledge Base
+                                     |
+                                     v
+                              Human Review
+                                     |
+                                     v
+                                  Synthesis
+                                     |
+                                     v
+                                Final Answer
+```
+
+The diagram illustrates the main components and their functional relationships. The actual execution order depends on the Supervisor's routing decisions and the conditions defined in the graph.
+
+---
+
+## Multi-agent architecture
+
+The system follows a hierarchical architecture in which a Supervisor coordinates two specialized agents:
+
+- **Teacher Agent:** handles conceptual questions and retrieves relevant theoretical information.
+- **Evaluator Agent:** assesses users' answers and provides feedback based on the retrieved knowledge.
+
+A synthesis node integrates the agents' contributions into a final response.
 
 ```mermaid
 flowchart TD
-    U[Consulta del usuario] --> S[Supervisor]
+    U[User Query] --> S[Supervisor]
 
-    S -->|Consulta conceptual| P[Agente Profesor]
-    S -->|Evaluación de respuesta| E[Agente Evaluador]
+    S -->|Conceptual question| P[Teacher Agent]
+    S -->|Answer evaluation| E[Evaluator Agent]
 
     P --> TC[buscar_concepto]
     P --> TF[buscar_fuente]
@@ -80,209 +99,220 @@ flowchart TD
     TF --> P
     TE --> E
 
-    P -->|Resultado| S
-    E -->|Resultado| S
+    P -->|Result| S
+    E -->|Result| S
 
-    S -->|Tarea completa| SY[Síntesis]
-    SY --> F[Respuesta final]
+    S -->|Task completed| SY[Synthesis]
+    SY --> F[Final Answer]
 ```
 
-### Componentes principales
+### Main components
 
-- **FastAPI:** recibe las solicitudes y expone los endpoints de procesamiento, consulta de estado y aprobación humana.
-- **Redis:** almacena el estado de las tareas y administra las colas de procesamiento y aprobación.
-- **Worker asíncrono:** consume las tareas pendientes y ejecuta el grafo fuera del contexto de la solicitud HTTP.
-- **LangGraph:** coordina los agentes, administra las transiciones del flujo y permite interrumpir y reanudar la ejecución.
-- **Supervisor:** decide qué agente debe intervenir y cuándo corresponde finalizar el proceso.
-- **Agente profesor:** recupera información teórica y fuentes relevantes para responder consultas académicas.
-- **Agente evaluador:** evalúa las respuestas del usuario mediante una herramienta de similitud semántica y consulta información de respaldo.
-- **Nodo de síntesis:** integra las contribuciones del sistema en una respuesta final.
-- **Arize Phoenix:** permite inspeccionar las trazas y analizar las ejecuciones instrumentadas.
-- **Trazas JSON:** conservan un registro adicional de los mensajes, las llamadas a herramientas y las intervenciones humanas.
-
-## Recuperación híbrida de información (RAG)
-
-El sistema utiliza un recuperador híbrido que combina dos mecanismos complementarios:
-
-- **Búsqueda léxica BM25:** recupera documentos a partir de coincidencias entre términos.
-- **Búsqueda vectorial:** utiliza embeddings para recuperar documentos semánticamente similares a la consulta.
-
-Los resultados de ambos mecanismos se combinan mediante una estrategia de ponderación para producir una lista de documentos relevantes.
-
-La recuperación híbrida se utiliza para buscar definiciones, explicaciones teóricas y fuentes bibliográficas. Los documentos recuperados constituyen el material de referencia de los agentes especializados.
-
-### Herramientas de recuperación y evaluación
-
-| Herramienta | Función |
+| Component | Responsibility |
 |---|---|
-| `buscar_concepto` | Recupera contenido teórico relevante para explicar un concepto. |
-| `buscar_fuente` | Recupera información bibliográfica y números de página. |
-| `evaluar_concepto` | Compara semánticamente la respuesta del usuario con el contenido recuperado. |
+| **FastAPI** | Receives requests and exposes processing, status, and human approval endpoints. |
+| **Redis** | Stores task states and manages processing and approval queues. |
+| **Asynchronous Worker** | Processes pending tasks and executes the graph outside the HTTP request lifecycle. |
+| **LangGraph** | Orchestrates agents, manages workflow transitions, and supports interruption and resumption. |
+| **Supervisor** | Determines which agent should handle a request and when the workflow is complete. |
+| **Teacher Agent** | Retrieves theoretical information and relevant sources to answer academic questions. |
+| **Evaluator Agent** | Evaluates user answers using semantic similarity and supporting knowledge retrieval. |
+| **Synthesis Node** | Combines the system's contributions into a final response. |
+| **Arize Phoenix** | Provides observability for instrumented executions. |
+| **JSON Traces** | Preserve execution records, including messages, tool calls, and human interventions. |
 
-La herramienta de evaluación utiliza umbrales heurísticos para asignar una de cuatro categorías: `Mal`, `Incompleta`, `Bien` y `Muy bien`.
+## Hybrid Retrieval-Augmented Generation (RAG)
 
-Estos umbrales no están calibrados empíricamente. La similitud semántica constituye una señal de comparación con los documentos recuperados, pero no es por sí sola una medida definitiva de la calidad conceptual de una respuesta.
+The system uses a hybrid retriever that combines two complementary retrieval mechanisms:
 
-### Configuración del recuperador
+- **BM25 lexical search:** retrieves documents based on term matching.
+- **Vector search:** uses embeddings to retrieve documents semantically similar to the query.
 
-El recuperador utiliza `EnsembleRetriever` para combinar los resultados de BM25 y de la búsqueda vectorial. La configuración seleccionada a partir de las pruebas históricas es:
+The results are combined through a weighted retrieval strategy to produce a ranked list of relevant documents.
 
-| Parámetro | Valor |
+This retrieval system supports the agents in finding definitions, theoretical explanations, and bibliographic references. Retrieved documents provide the knowledge base used to ground their responses.
+
+### Retrieval and evaluation tools
+
+| Tool | Function |
+|---|---|
+| `buscar_concepto` | Retrieves relevant theoretical content to explain a concept. |
+| `buscar_fuente` | Retrieves bibliographic information and page numbers. |
+| `evaluar_concepto` | Semantically compares the user's answer with retrieved content. |
+
+The evaluation tool uses heuristic thresholds to assign one of four categories: `Poor`, `Incomplete`, `Good`, and `Very Good`.
+
+These thresholds have not been empirically calibrated. Semantic similarity provides a comparison signal against the retrieved documents, but it is not, by itself, a definitive measure of the conceptual quality of an answer.
+
+### Retriever configuration
+
+The retriever uses LangChain's `EnsembleRetriever` to combine BM25 and vector search results.
+
+The configuration selected based on previous experiments is:
+
+| Parameter | Value |
 |---|---:|
-| Modelo de embeddings | `sentence-transformers/all-MiniLM-L6-v2` |
-| Almacenamiento vectorial | Pinecone |
-| Métrica de similitud vectorial | Coseno |
-| Tamaño de chunk | 400 tokens |
-| Solapamiento entre chunks | 100 tokens |
+| Embedding model | `sentence-transformers/all-MiniLM-L6-v2` |
+| Vector store | Pinecone |
+| Vector similarity metric | Cosine |
+| Chunk size | 400 tokens |
+| Chunk overlap | 100 tokens |
 | `top-k` | 5 |
-| Peso de BM25 | 0.25 |
-| Peso de búsqueda vectorial | 0.75 |
+| BM25 weight | 0.25 |
+| Vector search weight | 0.75 |
 
-Esta configuración busca equilibrar la coincidencia léxica con la recuperación semántica. Los parámetros fueron seleccionados mediante una evaluación histórica sobre un Golden Set específico, cuyos resultados se presentan a continuación.
+This configuration balances lexical matching and semantic retrieval. The parameters were selected through an earlier evaluation using a specific Golden Set.
 
-### Evaluación histórica del recuperador
+### Previous retrieval experiments
 
-Durante la Pre-Entrega 4 se realizaron experimentos para analizar el efecto del tamaño de los chunks y de la ponderación de los recuperadores BM25 y vectorial.
+Experiments were conducted to analyze the effects of chunk size and the weighting assigned to BM25 and vector retrieval.
 
-La evaluación utilizó un Golden Set y las métricas **Precision@5** y **Recall@5**. Se compararon distintos tamaños de chunk manteniendo un solapamiento de 100 tokens.
+The evaluation used a Golden Set and the following metrics:
 
-**Importante:** estos resultados corresponden a la evaluación histórica del recuperador en una versión anterior del proyecto. Aunque la estrategia de recuperación se conserva, la arquitectura y las interfaces de los agentes cambiaron durante el desarrollo del sistema multiagente final. Por lo tanto, los resultados no constituyen una evaluación integral del sistema final ni pueden considerarse directamente reproducibles mediante el código actual sin adaptar y validar el procedimiento de evaluación.
+- **Precision@5**
+- **Recall@5**
+
+Different chunk sizes were compared while maintaining an overlap of 100 tokens.
+
+**Important:** These results belong to an earlier version of the retrieval component. Although the retrieval strategy was retained, the architecture and agent interfaces changed during the subsequent development of the multi-agent system. Therefore, these results should not be interpreted as an evaluation of the complete current system. Reproducing them with the current code may require adapting and validating the original evaluation procedure.
 
 #### Recall@5
 
-La Figura 1 muestra el Recall@5 obtenido para diferentes combinaciones de pesos entre BM25 y búsqueda vectorial, utilizando distintos tamaños de chunk.
+Figure 1 shows Recall@5 for different combinations of BM25 and vector search weights across several chunk sizes.
 
-**Figura 1.** Recall@5 según la proporción de pesos entre BM25 y búsqueda vectorial para diferentes tamaños de chunk.
+**Figure 1.** Recall@5 by BM25/vector retrieval weight configuration and chunk size.
 
 ![Recall@5](evaluation/retrieval/figures/recall_at_5.png)
 
-Los valores más altos de Recall@5 se obtuvieron con chunks de 500, 400 y 300 tokens, alcanzando el 100 % para varias de las configuraciones evaluadas. En cambio, los chunks de 600 tokens presentaron un Recall menor en algunas de las configuraciones.
+The highest Recall@5 values were obtained with chunk sizes of 500, 400, and 300 tokens, reaching 100% in several configurations. Chunk sizes of 600 tokens showed lower recall in some configurations.
 
-En este conjunto de pruebas, los resultados sugieren que el tamaño de los chunks tuvo un efecto relevante sobre la capacidad del sistema para recuperar información pertinente. El comportamiento también dependió de la combinación de pesos utilizada en el `EnsembleRetriever`.
+These results suggest that chunk size had a relevant effect on the retriever's ability to retrieve relevant information. Performance also depended on the weighting configuration used by `EnsembleRetriever`.
 
-**Nota sobre el gráfico:** algunas configuraciones presentan valores idénticos de Recall@5, por lo que sus líneas se superponen. En particular, las líneas verde y naranja quedan ocultas debajo de la línea roja, ya que presentan los mismos valores en las configuraciones de pesos representadas.
+**Chart note:** Some configurations produced identical Recall@5 values, causing their lines to overlap. In particular, the green and orange lines are hidden beneath the red line because they share the same values for the represented weight configurations.
 
 #### Precision@5
 
-La Figura 2 presenta los resultados de Precision@5 para las mismas combinaciones de pesos y tamaños de chunk.
+Figure 2 presents Precision@5 for the same weight configurations and chunk sizes.
 
-**Figura 2.** Precision@5 según la proporción de pesos entre BM25 y búsqueda vectorial para diferentes tamaños de chunk.
+**Figure 2.** Precision@5 by BM25/vector retrieval weight configuration and chunk size.
 
 ![Precision@5](evaluation/retrieval/figures/precision_at_5.png)
 
-Los mejores valores de Precision@5 se obtuvieron con un tamaño de chunk de 400 tokens. En este caso, la precisión alcanzó su máximo con un peso de 0.25 para BM25 y 0.75 para la búsqueda vectorial.
+The highest Precision@5 was obtained with a chunk size of 400 tokens. Precision reached its maximum with a BM25 weight of 0.25 and a vector search weight of 0.75.
 
-#### Comparación de tamaños de chunk
+#### Chunk size comparison
 
-Los resultados agregados de la comparación entre tamaños de chunk fueron los siguientes:
+The aggregated results were:
 
-| Tamaño de chunk | Precision@5 | Recall@5 |
+| Chunk size | Precision@5 | Recall@5 |
 |---:|---:|---:|
-| 600 tokens | 65 % | 87.5 % |
-| 500 tokens | 72.5 % | 100 % |
-| 400 tokens | 80 % | 100 % |
-| 300 tokens | 72.5 % | 100 % |
+| 600 tokens | 65% | 87.5% |
+| 500 tokens | 72.5% | 100% |
+| 400 tokens | 80% | 100% |
+| 300 tokens | 72.5% | 100% |
 
-A partir de estos resultados, se seleccionó un tamaño de 400 tokens porque obtuvo la mayor Precision@5 y mantuvo un Recall@5 del 100 % sobre el Golden Set utilizado.
+A chunk size of 400 tokens was selected because it achieved the highest Precision@5 while maintaining 100% Recall@5 on the evaluated Golden Set.
 
-La configuración seleccionada combina ese tamaño de chunk con un solapamiento de 100 tokens, un `top-k` de 5 y pesos de 0.25 para BM25 y 0.75 para la búsqueda vectorial.
+The resulting configuration combines a 400-token chunk size, 100-token overlap, `top-k` of 5, BM25 weight of 0.25, and vector search weight of 0.75.
 
-Estos resultados son específicos del corpus y del Golden Set utilizados. No representan necesariamente el comportamiento del recuperador sobre otros conjuntos de documentos ni permiten inferir por sí solos la calidad de las respuestas finales generadas por los agentes.
+These results are specific to the corpus and Golden Set used in the experiments. They do not necessarily represent retrieval performance on other document collections, nor do they independently establish the quality of the final answers generated by the agents.
 
-## Sistema multiagente
+## Agent orchestration
 
-El grafo se organiza alrededor de un supervisor y dos agentes especializados, con un nodo de síntesis para la respuesta final.
+The graph is organized around a Supervisor and two specialized agents, with a synthesis node responsible for the final response.
 
 ### Supervisor
 
-El supervisor utiliza salida estructurada mediante el modelo `DecisionSupervisor` para determinar el siguiente paso del flujo.
+The Supervisor uses structured output through the `DecisionSupervisor` model to determine the next step in the workflow.
 
-Las decisiones posibles son:
+Possible routing decisions are:
 
 - `profesor`
 - `evaluador`
 - `FINISH`
 
-El grafo incorpora un límite máximo de pasos para evitar ciclos excesivos. Los agentes utilizan mecanismos de fallback entre proveedores de modelos de lenguaje cuando corresponde.
+The graph also implements a maximum step limit to prevent excessive execution cycles. Agents support fallback mechanisms between configured LLM providers when applicable.
 
-### Agente profesor
+### Teacher Agent
 
-El agente profesor utiliza las herramientas de recuperación para localizar información relevante y elaborar explicaciones fundamentadas en la base de conocimientos.
+The Teacher Agent uses retrieval tools to locate relevant information and generate explanations grounded in the knowledge base.
 
-### Agente evaluador
+### Evaluator Agent
 
-El agente evaluador utiliza la herramienta `evaluar_concepto` para obtener una categoría inicial y puede consultar fuentes o contenido teórico adicional. Cuando recibe feedback humano, vuelve a analizar la respuesta considerando las observaciones recibidas.
+The Evaluator Agent uses `evaluar_concepto` to obtain an initial evaluation category. It can also retrieve additional theoretical content and bibliographic references.
 
-## Flujo Human-in-the-loop
+When human feedback is received, the agent reassesses the answer using the provided observations.
 
-Cuando el Supervisor determina que debe utilizarse el agente evaluador, el flujo pasa previamente por el nodo de aprobación humana.
+## Human-in-the-loop (HITL)
+
+When the Supervisor determines that the Evaluator Agent should be invoked, the workflow first passes through a human approval node.
 
 ```text
 Supervisor
-    │
-    ▼
+    |
+    v
 Human Approval
-    │
-    ▼
+    |
+    v
 interrupt()
-    │
-    ▼
+    |
+    v
 WAITING_APPROVAL
-    │
-    │ POST /approve/{job_id}
-    ▼
+    |
+    | POST /approve/{job_id}
+    v
 Redis
-    │
-    ▼
+    |
+    v
 Worker
-    │
-    ▼
+    |
+    v
 Command(resume=...)
-    │
-    ▼
-Evaluador
-    │
-    ├── revisión necesaria ──► Human Approval
-    │
-    └── evaluación final ───► Supervisor
-                                  │
-                                  ▼
-                               Síntesis
-                                  │
-                                  ▼
-                              completed
+    |
+    v
+Evaluator
+    |
+    +---- Review required ----> Human Approval
+    |
+    +---- Final evaluation ---> Supervisor
+                                  |
+                                  v
+                               Synthesis
+                                  |
+                                  v
+                               completed
 ```
 
-El flujo utiliza `interrupt()` para pausar la ejecución del grafo y `Command(resume=...)` para continuarla una vez recibida la decisión humana.
+The workflow uses LangGraph's `interrupt()` to pause execution and `Command(resume=...)` to resume it after receiving a human decision.
 
-La intervención humana puede:
+Human reviewers can:
 
-- **Aprobar** la evaluación y continuar el flujo.
-- **Rechazar** la evaluación proporcionando feedback para que el evaluador vuelva a analizar y modificar la respuesta.
+- **Approve** the evaluation and allow the workflow to continue.
+- **Reject** the evaluation and provide feedback so that the Evaluator Agent can reassess and revise its response.
 
-El feedback humano se incorpora a la siguiente evaluación y se persiste junto con los demás eventos de intervención.
+Human feedback is incorporated into the subsequent evaluation and persisted alongside other intervention events.
 
-### Síntesis
+### Synthesis
 
-El nodo de síntesis combina las contribuciones acumuladas durante la ejecución y produce una respuesta final clara y breve.
+The synthesis node combines the contributions accumulated during execution to produce a clear and concise final response.
 
-## API REST
+## REST API
 
-La API expone tres endpoints principales.
+The application exposes three main endpoints.
 
 ### `POST /process`
 
-Recibe una consulta, genera un identificador único, guarda el estado inicial en Redis y agrega la tarea a la cola `multiagent_tasks`.
+Receives a query, generates a unique identifier, stores the initial task state in Redis, and adds the task to the `multiagent_tasks` queue.
 
-Ejemplo de solicitud:
+Example request:
 
 ```json
 {
-  "query": "Quiero que evalúes mi respuesta sobre la correlación. La correlación es..."
+  "query": "Please evaluate my answer about correlation. Correlation is..."
 }
 ```
 
-Respuesta inicial:
+Initial response:
 
 ```json
 {
@@ -291,13 +321,13 @@ Respuesta inicial:
 }
 ```
 
-El procesamiento continúa en segundo plano. El cliente utiliza el identificador recibido para consultar el estado de la tarea.
+Processing continues in the background. The client uses the returned identifier to retrieve the task status.
 
 ### `GET /status/{job_id}`
 
-Permite consultar el estado, el resultado y los posibles errores de una tarea.
+Retrieves the task status, result, and any errors that may have occurred.
 
-Los estados contemplados por el flujo son:
+The workflow uses the following states:
 
 - `pending`
 - `processing`
@@ -307,9 +337,9 @@ Los estados contemplados por el flujo son:
 
 ### `POST /approve/{job_id}`
 
-Recibe la decisión humana y, opcionalmente, el feedback para el agente evaluador.
+Receives a human decision and, optionally, feedback for the Evaluator Agent.
 
-Ejemplo de aprobación:
+Example approval:
 
 ```json
 {
@@ -318,234 +348,237 @@ Ejemplo de aprobación:
 }
 ```
 
-Ejemplo de rechazo con observaciones:
+Example rejection with feedback:
 
 ```json
 {
   "decision": "reject",
-  "feedback": "Revisá la explicación y agregá un ejemplo aplicado."
+  "feedback": "Review the explanation and add an applied example."
 }
 ```
 
-El endpoint verifica que la tarea exista y se encuentre esperando aprobación. Después guarda la decisión en Redis y la agrega a la cola `multiagent_approvals`. El Worker recupera esa información y reanuda el grafo.
+The endpoint verifies that the task exists and is waiting for approval. It then stores the decision in Redis and adds it to the `multiagent_approvals` queue. The Worker retrieves the information and resumes the graph.
 
-La documentación interactiva de la API está disponible en `/docs` cuando el servidor está en ejecución.
+Interactive API documentation is available at `/docs` while the server is running.
 
-## Procesamiento asíncrono y persistencia
+## Asynchronous processing and state persistence
 
-La arquitectura desacopla la recepción de solicitudes del procesamiento de los agentes.
+The architecture decouples request handling from agent execution.
 
-La cola principal utiliza la clave `multiagent_tasks`; las aprobaciones se procesan mediante `multiagent_approvals`. El estado de cada tarea se guarda en `task_status:{job_id}`.
+The main task queue uses the `multiagent_tasks` key, while approval events are processed through `multiagent_approvals`. Each task's state is stored under `task_status:{job_id}`.
 
-El grafo se compila con `AsyncRedisSaver`, que permite persistir checkpoints asociados al identificador de conversación (`thread_id`). Esto permite reanudar la ejecución después de una interrupción de Human-in-the-loop.
+The graph is compiled with `AsyncRedisSaver`, which persists checkpoints associated with the conversation identifier (`thread_id`). This allows workflow execution to resume after a Human-in-the-loop interruption.
 
-El Worker actualiza el estado de la tarea según el resultado del procesamiento. Si se produce una excepción, registra el error y marca la tarea como `failed`.
+The Worker updates the task status according to the processing result. If an exception occurs, it records the error and marks the task as `failed`.
 
-## Observabilidad y trazas
+## Observability and execution traces
 
-La instrumentación utiliza Arize Phoenix, OpenInference y OpenTelemetry para observar las ejecuciones del sistema.
+Instrumentation uses Arize Phoenix, OpenInference, and OpenTelemetry to monitor system executions.
 
-Phoenix permite inspeccionar las trazas y los spans instrumentados, seguir la secuencia observable de ejecución y analizar las métricas disponibles de latencia y costo.
+Phoenix allows developers to inspect traces and instrumented spans, follow the observable execution sequence, and analyze available latency and cost metrics.
 
-Además, el sistema conserva trazas locales en formato JSON. Según el flujo ejecutado, estas pueden incluir:
+The system also stores local traces in JSON format. Depending on the execution path, these may include:
 
-- Mensajes del usuario y respuestas de los agentes.
-- Llamadas y resultados de herramientas.
-- Identificación de los agentes involucrados.
-- Eventos de aprobación humana y feedback.
-- Secuencia observable de ejecución.
+- User messages and agent responses.
+- Tool calls and their results.
+- Identification of the agents involved.
+- Human approval events and feedback.
+- Observable execution sequence.
 
-Las trazas representan la ejecución observable del sistema, no el razonamiento interno no observable de los modelos.
+These traces represent the observable execution of the system, not the models' unobservable internal reasoning.
 
-La instrumentación de Phoenix utiliza el endpoint local [http://localhost:6006/v1/traces](http://localhost:6006/v1/traces). La interfaz web se encuentra en [http://localhost:6006](http://localhost:6006).
+Phoenix instrumentation uses the local endpoint:
 
-Se incluyen **cinco trazas de ejemplo** en la carpeta `traces/` y capturas de pantalla en `screenshots/` que muestran ejecuciones del sistema y las métricas de costos y latencias observadas en Arize Phoenix.
+- Traces: `http://localhost:6006/v1/traces`
+- Web interface: `http://localhost:6006`
 
-## Manejo de errores
+The repository includes **five example traces** in `traces/` and screenshots in `screenshots/`, illustrating system executions and the cost and latency metrics observed in Arize Phoenix.
 
-El proyecto incorpora manejo de errores en la ejecución de las herramientas, los agentes y el Worker.
+## Error handling
 
-Los errores de proveedores LLM se clasifican mediante los mecanismos definidos en `app/errors.py`. Los agentes contemplan fallback entre los proveedores configurados, y los errores que impiden completar una tarea se registran en su estado.
+The project implements error handling across tool execution, agent workflows, and the Worker.
 
-La información de error queda disponible al consultar `GET /status/{job_id}`.
+LLM provider errors are classified through the mechanisms defined in `app/errors.py`. Agents support fallback between configured providers, while errors that prevent task completion are recorded in the task state.
 
-## Tests automatizados
+Error information is available through `GET /status/{job_id}`.
 
-El proyecto incluye una suite de tests automatizados para verificar componentes de la API, el Worker y otras funcionalidades cubiertas por los casos de prueba.
+## Automated tests
 
-La suite se ejecutó con éxito en el entorno de desarrollo: **39 tests ejecutados correctamente**.
+The project includes an automated test suite covering the API, Worker, checkpointing, Human-in-the-loop workflows, and other implemented components.
 
-**Importante:** antes de ejecutar los tests, es necesario instalar las dependencias de desarrollo e iniciar la aplicación con `run.sh`. Algunos tests requieren que los servicios reales estén disponibles, por lo que no alcanza con ejecutar la suite de manera aislada.
+The test suite was successfully executed in the development environment, with **39 tests passing**.
 
-### Procedimiento de ejecución
+**Important:** Development dependencies must be installed and the application must be running through `run.sh` before executing the tests. Some tests require actual services to be available, so running the test suite in isolation is not sufficient.
 
-1. Abrir una terminal en la carpeta raíz del proyecto.
-2. Activar el entorno virtual.
-3. Instalar las dependencias necesarias para testing:
+### Running the tests
+
+1. Open a terminal in the project root.
+2. Activate the virtual environment.
+3. Install the development dependencies:
 
    ```bash
    python -m pip install -r requirements-dev.txt
    ```
 
-4. Iniciar la aplicación ejecutando `run.sh`:
+4. Start the application:
 
    ```bash
    bash run.sh
    ```
 
-5. Esperar a que Redis, Phoenix, FastAPI y el Worker estén disponibles.
-6. Mantener esa terminal abierta mientras se ejecutan las pruebas.
-7. Abrir una segunda terminal, activar el mismo entorno virtual y ejecutar los tests:
+5. Wait until Redis, Phoenix, FastAPI, and the Worker are available.
+6. Keep this terminal running while the tests execute.
+7. Open a second terminal, activate the same virtual environment, and run:
 
    ```bash
    python -m pytest -v
    ```
 
-Al finalizar los tests, la aplicación puede detenerse con `Ctrl+C` en la terminal donde se ejecuta `run.sh`. Redis y Phoenix permanecen ejecutándose en Docker y pueden detenerse por separado cuando sea necesario.
+When testing is complete, stop the application with `Ctrl+C` in the terminal running `run.sh`. Redis and Phoenix remain active in Docker and can be stopped separately.
 
-## Requisitos
+## Requirements
 
-Para ejecutar el proyecto se necesita:
+To run the project, you need:
 
-- Python 3.12 o la versión compatible especificada por las dependencias del proyecto.
-- Docker y Docker Compose.
-- Redis, iniciado mediante el archivo `compose.yml`.
-- Acceso al índice de Pinecone utilizado por el recuperador.
-- Una clave de API para el proveedor LLM configurado.
-- Arize Phoenix para la observabilidad.
-- Las dependencias de Python declaradas en `requirements.txt`.
+- Python 3.12 or a compatible version supported by the project dependencies.
+- Docker and Docker Compose.
+- Redis, started through `compose.yml`.
+- Access to the Pinecone index used by the retriever.
+- An API key for the configured LLM provider.
+- Arize Phoenix for observability.
+- The Python dependencies declared in `requirements.txt`.
 
-Las claves de los proveedores alternativos son necesarias si se desea utilizar el mecanismo de fallback correspondiente.
+API keys for alternative providers are required if you intend to use the corresponding fallback mechanisms.
 
-## Instalación y configuración
+## Installation and configuration
 
-### 1. Clonar el repositorio
+### 1. Clone the repository
 
 ```bash
-git clone <URL_DEL_REPOSITORIO>
-cd EntregaFinal_Sistema_inteligente_de_grado_de_produccion
+git clone <REPOSITORY_URL>
+cd <REPOSITORY_DIRECTORY>
 ```
 
-Reemplazar `<URL_DEL_REPOSITORIO>` por la URL real del repositorio.
+Replace `<REPOSITORY_URL>` with the repository URL.
 
-### 2. Crear y activar el entorno virtual
+### 2. Create and activate a virtual environment
 
-Crear el entorno virtual:
+Create the environment:
 
 ```bash
 python -m venv .venv
 ```
 
-En Windows PowerShell:
+On Windows PowerShell:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-En Linux o macOS:
+On Linux or macOS:
 
 ```bash
 source .venv/bin/activate
 ```
 
-### 3. Instalar las dependencias
+### 3. Install dependencies
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-### 4. Configurar las variables de entorno
+### 4. Configure environment variables
 
-Crear un archivo `.env` tomando como referencia `.env.example` y completar las credenciales necesarias.
+Create a `.env` file using `.env.example` as a reference, and provide the required credentials.
 
 ```dotenv
 # Models
-GOOGLE_API_KEY=tu_clave_de_google
-OPENAI_API_KEY=tu_clave_de_openai
-ANTHROPIC_API_KEY=tu_clave_de_anthropic
+GOOGLE_API_KEY=your_google_api_key
+OPENAI_API_KEY=your_openai_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
 
 # Database
-PINECONE_API_KEY=tu_clave_de_pinecone
-INDEX_NAME=tu_nombre_de_indice
+PINECONE_API_KEY=your_pinecone_api_key
+INDEX_NAME=your_index_name
 
 # Redis
 REDIS_URL=redis://localhost:6379
 ```
 
-Los nombres definitivos deben coincidir con los utilizados en la configuración actual del proyecto. No deben incluirse credenciales reales en el repositorio.
+The variable names must match those used in the current project configuration. Never commit actual credentials to the repository.
 
-### 5. Iniciar la aplicación
+### 5. Start the application
 
-El script `run.sh` automatiza el inicio de los servicios y procesos necesarios para ejecutar la aplicación en el entorno Windows utilizado durante el desarrollo.
+The `run.sh` script automates the startup of the services and processes required to run the application in the Windows environment used during development.
 
-Desde la carpeta raíz del proyecto, ejecutar:
+From the project root, execute:
 
 ```bash
 bash run.sh
 ```
 
-El script realiza las siguientes operaciones:
+The script performs the following operations:
 
-1. Activa el entorno virtual de Python mediante `.venv/Scripts/activate`.
-2. Inicia Redis y Phoenix con Docker Compose, utilizando `compose.yml`.
-3. Espera hasta que Redis responda correctamente.
-4. Configura `REDIS_URL`, utilizando `redis://localhost:6379` como valor predeterminado.
-5. Inicia FastAPI mediante Uvicorn con `--reload`.
-6. Inicia el Worker con `python -m app.worker`.
-7. Espera a que FastAPI esté disponible y abre Swagger automáticamente en Windows cuando responde dentro del tiempo de espera configurado.
+1. Activates the Python virtual environment through `.venv/Scripts/activate`.
+2. Starts Redis and Phoenix using Docker Compose and `compose.yml`.
+3. Waits until Redis responds successfully.
+4. Configures `REDIS_URL`, using `redis://localhost:6379` as the default value.
+5. Starts FastAPI through Uvicorn with `--reload`.
+6. Starts the Worker using `python -m app.worker`.
+7. Waits until FastAPI is available and automatically opens Swagger in Windows when the API responds within the configured timeout.
 
-Las direcciones principales son:
+Main service addresses:
 
-| Servicio | Dirección |
+| Service | Address |
 |---|---|
-| API y Swagger | [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) |
-| Esquema OpenAPI | [http://127.0.0.1:8000/openapi.json](http://127.0.0.1:8000/openapi.json) |
+| API and Swagger | [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) |
+| OpenAPI schema | [http://127.0.0.1:8000/openapi.json](http://127.0.0.1:8000/openapi.json) |
 | Phoenix | [http://localhost:6006](http://localhost:6006) |
 
-Para detener la API y el Worker, presionar `Ctrl+C` en la terminal donde se ejecuta el script. Redis y Phoenix permanecen activos en Docker.
+To stop FastAPI and the Worker, press `Ctrl+C` in the terminal running the script. Redis and Phoenix remain active in Docker.
 
-**Nota sobre el sistema operativo:** el `run.sh` descrito aquí utiliza rutas y comandos específicos de Windows, como `.venv/Scripts/activate`, `taskkill.exe` y `explorer.exe`.
+**Operating system note:** The `run.sh` script described here uses Windows-specific paths and commands, including `.venv/Scripts/activate`, `taskkill.exe`, and `explorer.exe`.
 
-También se incorporó una alternativa mediante un script de shell para Linux. Sin embargo, **esta alternativa no fue probada en Linux**, por lo que su funcionamiento en ese sistema operativo no está verificado y queda pendiente de validación.
+A separate shell script for Linux is also included. However, **the Linux alternative has not been tested**, so its behavior on that operating system remains unverified.
 
-## Ejemplo de uso
+## Example usage
 
-1. Iniciar la aplicación con `run.sh`. El script abre Swagger automáticamente cuando la API está disponible.
-2. Si Swagger no se abre automáticamente, acceder a [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
-3. Ejecutar `POST /process` con una consulta.
-4. Copiar el `job_id` devuelto en la respuesta.
-5. Consultar `GET /status/{job_id}`, reemplazando `{job_id}` por el identificador copiado, hasta que la tarea finalice o requiera aprobación.
-6. Si el estado es `waiting_approval`, enviar una decisión mediante `POST /approve/{job_id}`, reemplazando `{job_id}` por el identificador de la tarea.
-7. Consultar nuevamente el estado hasta obtener el resultado final.
-8. Inspeccionar la ejecución en Phoenix y revisar la traza JSON correspondiente.
+1. Start the application using `run.sh`. The script automatically opens Swagger when the API becomes available.
+2. If Swagger does not open automatically, navigate to [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+3. Submit a query through `POST /process`.
+4. Copy the `job_id` returned in the response.
+5. Poll `GET /status/{job_id}`, replacing `{job_id}` with the copied identifier, until the task completes or requires approval.
+6. If the status is `waiting_approval`, submit a decision through `POST /approve/{job_id}`.
+7. Check the task status again until the final result is available.
+8. Inspect the execution in Phoenix and review the corresponding JSON trace.
 
-### Video ejemplo
+### Example video
 
-[Ver video de ejemplo](https://drive.google.com/file/d/1KVr_MlY7GyNQnINE-KtGg30BUCunMZRB/view?usp=sharing)
+[Watch the example video](https://drive.google.com/file/d/1KVr_MlY7GyNQnINE-KtGg30BUCunMZRB/view?usp=sharing)
 
-## Tecnologías utilizadas
+## Technologies
 
 - Python
-- FastAPI y Uvicorn
+- FastAPI and Uvicorn
 - asyncio
 - Pydantic
 - Redis
-- LangChain y LangGraph
+- LangChain and LangGraph
 - LangGraph Checkpoint Redis
-- Modelos de lenguaje de los proveedores configurados
+- Configured LLM providers
 - Pinecone
-- Embeddings y recuperación vectorial
-- BM25 y recuperación híbrida
+- Embeddings and vector retrieval
+- BM25 and hybrid retrieval
 - scikit-learn
 - Arize Phoenix
-- OpenInference y OpenTelemetry
+- OpenInference and OpenTelemetry
 - pytest
 - Docker Compose
 - Git
 
-## Estructura del proyecto
+## Project structure
 
-La estructura funcional principal es:
+The main functional structure is:
 
 ```text
 .
@@ -572,16 +605,6 @@ La estructura funcional principal es:
 │   ├── setup.py
 │   └── trace_utils.py
 ├── tests/
-│   ├── test_api.py
-│   ├── test_checkpoint_hitl.py
-│   ├── test_checkpoint.py
-│   ├── test_chunking.py
-│   ├── test_e2e_hitl_evaluation.py
-│   ├── test_e2e_profesor.py
-│   ├── test_main.py
-│   ├── test_redis_integration.py
-│   ├── test_schemas.py
-│   └── test_worker.py
 ├── traces/
 ├── screenshots/
 ├── evaluation/
@@ -602,29 +625,29 @@ La estructura funcional principal es:
 └── README.md
 ```
 
-La estructura es orientativa y deberá ajustarse a los archivos presentes en la versión final del repositorio. Los gráficos de evaluación deben conservar las rutas relativas indicadas para que se visualicen correctamente en GitHub.
+The structure is illustrative and should be updated to match the files present in the final repository. Evaluation charts must retain the relative paths shown above to render correctly on GitHub.
 
-## Decisiones de diseño
+## Design decisions
 
-Las principales decisiones de diseño son:
+The main architectural decisions include:
 
-- Separar la API del procesamiento en segundo plano.
-- Utilizar Redis como mecanismo de desacoplamiento y persistencia del estado de las tareas.
-- Utilizar checkpoints para preservar el estado del grafo durante las interrupciones.
-- Coordinar agentes especializados mediante un supervisor.
-- Incorporar recuperación híbrida para consultar una base de conocimientos.
-- Implementar Human-in-the-loop para permitir revisión y reevaluación con feedback.
-- Registrar errores y estados explícitos de finalización.
-- Instrumentar las ejecuciones para facilitar su inspección.
-- Conservar trazas detalladas de las ejecuciones.
-- Automatizar pruebas mediante una suite de tests.
-- Automatizar el inicio de los servicios y procesos mediante `run.sh`.
+- Separating HTTP request handling from background processing.
+- Using Redis to decouple task submission from execution and to persist task states.
+- Using graph checkpoints to preserve execution state across interruptions.
+- Coordinating specialized agents through a Supervisor.
+- Implementing hybrid retrieval over a dedicated knowledge base.
+- Supporting Human-in-the-loop review and feedback-driven reevaluation.
+- Maintaining explicit task states and error handling.
+- Instrumenting executions to facilitate debugging and analysis.
+- Preserving detailed execution traces.
+- Automating validation through an automated test suite.
+- Automating service startup through `run.sh`.
 
-## Sobre el código
+## Acknowledgements and references
 
-El proyecto fue desarrollado tomando como referencia:
+The development of this project drew on:
 
-* Código y ejemplos proporcionados por el profesor como guía.
-* Ejemplos y contenidos incluidos en el temario de la plataforma sobre agentes, LangGraph, herramientas, RAG y sistemas multi-agente.
-* Documentación oficial y recursos disponibles en Internet.
-* ChatGPT como herramienta de asistencia durante el desarrollo.
+- The original TeMa implementation, which provided the starting point for the application's evolution.
+- Technical examples and educational materials covering agents, LangGraph, tools, RAG, and multi-agent systems.
+- Official documentation and publicly available technical resources.
+- ChatGPT as a development assistance tool.
