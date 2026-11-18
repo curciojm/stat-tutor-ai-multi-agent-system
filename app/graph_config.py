@@ -29,19 +29,19 @@ def ruting_after_evaluator(state: AgentState) -> Literal["supervisor", "human_ap
     return "supervisor"
 
 
-grafo = StateGraph(AgentState)
+graph = StateGraph(AgentState)
 
-grafo.add_node("supervisor", node_supervisor)
-grafo.add_node("teacher", node_teacher)
-grafo.add_node("evaluator", node_evaluator)
-grafo.add_node("synthesis", node_synthesis)
-grafo.add_node("human_approval", human_approval)
-
-
-grafo.add_edge(START, "supervisor")
+graph.add_node("supervisor", node_supervisor)
+graph.add_node("teacher", node_teacher)
+graph.add_node("evaluator", node_evaluator)
+graph.add_node("synthesis", node_synthesis)
+graph.add_node("human_approval", human_approval)
 
 
-grafo.add_conditional_edges(
+graph.add_edge(START, "supervisor")
+
+
+graph.add_conditional_edges(
     "supervisor",
     ruting,
     {
@@ -52,10 +52,10 @@ grafo.add_conditional_edges(
 )
 
 
-grafo.add_edge("teacher", "supervisor")
+graph.add_edge("teacher", "supervisor")
 
 
-grafo.add_conditional_edges(
+graph.add_conditional_edges(
     "human_approval",
     ruting_approval,
     {
@@ -63,7 +63,7 @@ grafo.add_conditional_edges(
     },
 )
 
-grafo.add_conditional_edges(
+graph.add_conditional_edges(
     "evaluevaluatorador",
     ruting_after_evaluator,
     {
@@ -72,4 +72,4 @@ grafo.add_conditional_edges(
     },
 )
 
-grafo.add_edge("synthesis", END)
+graph.add_edge("synthesis", END)

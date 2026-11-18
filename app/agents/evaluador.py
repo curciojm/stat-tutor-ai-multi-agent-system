@@ -105,20 +105,20 @@ async def node_evaluator(state: AgentState) -> dict:
 
     task = state["messages"][-1].content
 
-    feedback = state.get("feedback_humano")
+    feedback = state.get("human_feedback")
 
     if feedback:
         task = f"""
 {task}
 
-REVISIÓN HUMANA DE LA EVALUACIÓN ANTERIOR:
+HUMAN REVIEW OF THE PREVIOUS EVALUATION:
 
-Un supervisor humano revisó la evaluación anterior y proporcionó el siguiente feedback:
+A human supervisor reviewed the previous evaluation and provided the following feedback:
 
 {feedback}
 
-Debés reconsiderar la respuesta del estudiante teniendo en cuenta este feedback.
-Volvé a utilizar las herramientas disponibles para realizar una nueva evaluación.
+You must reconsider the student's answer taking this feedback into account.
+Use the available tools again to perform a new evaluation.
 """
 
     last_error = None

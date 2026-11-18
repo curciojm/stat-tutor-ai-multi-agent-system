@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.types import Command
 
-from app.graph_config import grafo
+from app.graph_config import graph
 
 load_dotenv()
 
@@ -27,7 +27,7 @@ async def test_checkpoint_hitl_restablish_after_reopen_checkpointer():
     }
 
     async with AsyncRedisSaver.from_conn_string(REDIS_URL) as checkpointer:
-        app = grafo.compile(checkpointer=checkpointer)
+        app = graph.compile(checkpointer=checkpointer)
 
         resultado = await app.ainvoke(
             {
@@ -47,13 +47,13 @@ async def test_checkpoint_hitl_restablish_after_reopen_checkpointer():
             config=config,
         )
 
-        assert resultado.get("__interrupt__"), ("El grafo no quedó interrumpido como se esperaba.")
+        assert resultado.get("__interrupt__"), ("El graph no quedó interrumpido como se esperaba.")
 
         estado = await app.aget_state(config)
         assert estado.next, "El checkpoint no indica nodos pendientes."
 
     async with AsyncRedisSaver.from_conn_string(REDIS_URL) as checkpointer:
-        app = grafo.compile(checkpointer=checkpointer)
+        app = graph.compile(checkpointer=checkpointer)
 
         estado_recuperado = await app.aget_state(config)
 
@@ -69,7 +69,7 @@ async def test_checkpoint_hitl_restablish_after_reopen_checkpointer():
             config=config,
         )
 
-        assert not resultado_final.get("__interrupt__"), ("El grafo volvió a interrumpirse.")
+        assert not resultado_final.get("__interrupt__"), ("El graph volvió a interrumpirse.")
 
         estado_final = await app.aget_state(config)
-        assert not estado_final.next, ("El grafo no terminó después de la aprobación.")
+        assert not estado_final.next, ("El graph no terminó después de la aprobación.")

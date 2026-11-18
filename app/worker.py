@@ -7,7 +7,7 @@ from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from langgraph.types import Command
 from redis import asyncio as aioredis
 
-from app.graph_config import grafo
+from app.graph_config import graph
 from app.logging_config import logger
 from app.observability import configurar_observabilidad
 from app.trace_utils import guardar_traza, serializar_traza
@@ -211,7 +211,7 @@ async def main_worker():
 
     async with AsyncRedisSaver.from_conn_string(REDIS_URL) as checkpointer:
 
-        app = grafo.compile(checkpointer=checkpointer)
+        app = graph.compile(checkpointer=checkpointer)
 
         while True:
 

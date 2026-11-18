@@ -41,7 +41,7 @@ async def redis_client():
         await client.aclose()
 
 
-def crear_grafo():
+def create_graph():
     """A graph to test persistence."""
 
     builder = StateGraph(CheckpointState)
@@ -66,7 +66,7 @@ async def test_checkpoint_persitence_after_reopen_checkpoint(redis_client):
         }
     }
 
-    builder = crear_grafo()
+    builder = create_graph()
 
     async with AsyncRedisSaver.from_conn_string(REDIS_URL) as checkpointer:
         app = builder.compile(checkpointer=checkpointer)
