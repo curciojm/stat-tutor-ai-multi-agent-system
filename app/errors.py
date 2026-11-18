@@ -10,7 +10,6 @@ def classify_error(error: Exception) -> LLMError:
             "Provider credentials are invalid",
         )
 
-    # Límite de solicitudes o cuota
     if status_code == 429:
         return LLMError(
             LLMErrorType.RATE_LIMIT,

@@ -15,7 +15,7 @@ def test_create_task():
         response = client.post(
             "/process",
             json={
-                "query": "Explicá qué es la media."
+                "query": "Explain what mean is."
             },
         )
 
@@ -41,15 +41,15 @@ def test_create_task():
     task_data = json.loads(set_args[1])
 
     assert task_data["job_id"] == data["job_id"]
-    assert task_data["query"] == "Explicá qué es la media."
+    assert task_data["query"] == "Explain what mean is."
     assert task_data["status"] == "pending"
 
-def test_get_status_devuelve_tarea_existente():
+def test_get_status_returns_actual_task():
     job_id = "test-job-123"
 
     task_data = {
         "job_id": job_id,
-        "query": "Explicá qué es la media.",
+        "query": "Explain what mean is.",
         "status": "processing",
         "result": None,
         "error": None,
@@ -69,7 +69,7 @@ def test_get_status_devuelve_tarea_existente():
     )
 
 
-def test_get_status_devuelve_404_si_no_existe():
+def test_get_status_return_404_if_task_doesnt_exist():
     job_id = "job-inexistente"
 
     fake_redis = AsyncMock()
@@ -82,12 +82,12 @@ def test_get_status_devuelve_404_si_no_existe():
     assert response.json()["detail"] == "Job not found"
 
 
-def test_approve_task_encola_aprobacion_valida():
+def test_approve_task_approval_valid():
     job_id = "test-job-123"
 
     task_data = {
         "job_id": job_id,
-        "query": "Explicá qué es la media.",
+        "query": "Explain what mean is.",
         "status": "waiting_approval",
         "result": None,
         "error": None,
@@ -101,7 +101,7 @@ def test_approve_task_encola_aprobacion_valida():
             f"/approve/{job_id}",
             json={
                 "decision": "approve",
-                "feedback": "La respuesta es correcta.",
+                "feedback": "The answer is correct",
             },
         )
 
@@ -121,7 +121,7 @@ def test_approve_task_encola_aprobacion_valida():
 
     assert approval_data == {
         "decision": "approve",
-        "feedback": "La respuesta es correcta.",
+        "feedback": "The answer is correct",
     }
 
     fake_redis.rpush.assert_awaited_once_with(
@@ -130,12 +130,12 @@ def test_approve_task_encola_aprobacion_valida():
     )
 
 
-def test_approve_task_rechaza_tarea_que_no_espera_aprobacion():
+def test_approve_task_reject_task_if_approve_isnt_expected():
     job_id = "test-job-123"
 
     task_data = {
         "job_id": job_id,
-        "query": "Explicá qué es la media.",
+        "query": "Explain what mean is",
         "status": "processing",
         "result": None,
         "error": None,

@@ -2,10 +2,10 @@ from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
 
-from app.agents.evaluador import nodo_evaluador
-from app.agents.profesor import nodo_profesor
-from app.agents.sintesis import nodo_sintesis
-from app.agents.supervisor import nodo_supervisor
+from app.agents.evaluador import node_evaluator
+from app.agents.teacher import node_teacher
+from app.agents.synthesis import node_synthesis
+from app.agents.supervisor import node_supervisor
 from app.hitl import human_approval
 from app.schemas import AgentState
 
@@ -31,10 +31,10 @@ def ruting_after_evaluator(state: AgentState) -> Literal["supervisor", "human_ap
 
 grafo = StateGraph(AgentState)
 
-grafo.add_node("supervisor", nodo_supervisor)
-grafo.add_node("teacher", nodo_profesor)
-grafo.add_node("evaluator", nodo_evaluador)
-grafo.add_node("synthesis", nodo_sintesis)
+grafo.add_node("supervisor", node_supervisor)
+grafo.add_node("teacher", node_teacher)
+grafo.add_node("evaluator", node_evaluator)
+grafo.add_node("synthesis", node_synthesis)
 grafo.add_node("human_approval", human_approval)
 
 

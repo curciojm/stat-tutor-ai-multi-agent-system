@@ -105,7 +105,7 @@ async def approve_task(
         )
 
     approval_data = {
-        "desition": request.decision,
+        "decision": request.decision,
         "feedback": request.feedback,
     }
 
@@ -122,7 +122,7 @@ async def approve_task(
     logger.info(
         "Human approval submitted for job %s: decision=%s",
         job_id,
-        request.desition
+        request.decision
     )
 
     return {

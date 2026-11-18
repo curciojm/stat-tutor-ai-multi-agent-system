@@ -17,7 +17,7 @@ async def test_process_crea_tarea_y_encola_sin_redis_real():
         async with httpx.AsyncClient(transport=transport,base_url="http://test") as client:
             response = await client.post(
                 "/process",
-                json={"query": "¿Qué es una prueba de hipótesis?"},
+                json={"query": "What is a hypothesis test?"},
             )
 
     assert response.status_code == 200
@@ -39,19 +39,19 @@ async def test_process_crea_tarea_y_encola_sin_redis_real():
     assert saved_key == f"task_status:{job_id}"
     assert saved_task == {
         "job_id": job_id,
-        "query": "¿Qué es una prueba de hipótesis?",
+        "query": "What is a hypothesis test?",
         "status": "pending",
         "result": None,
         "error": None,
     }
 
 @pytest.mark.asyncio
-async def test_status_devuelve_tarea_guardada_en_redis_mock():
+async def test_status_returns_task_saved_in_redis_mock():
     job_id = "test-job-123"
 
     task_data = {
         "job_id": job_id,
-        "query": "¿Qué es una prueba de hipótesis?",
+        "query": "What is a hypothesis test?",
         "status": "processing",
         "result": None,
         "error": None,
@@ -77,7 +77,7 @@ async def test_status_devuelve_tarea_guardada_en_redis_mock():
     )
 
 @pytest.mark.asyncio
-async def test_status_devuelve_404_si_tarea_no_existe_mock():
+async def test_status_returns_404_if_task_dont_exist_mock():
     job_id = "job-inexistente"
 
     mock_redis = AsyncMock()
@@ -95,14 +95,14 @@ async def test_status_devuelve_404_si_tarea_no_existe_mock():
     mock_redis.get.assert_awaited_once_with(f"task_status:{job_id}")
 
 @pytest.mark.asyncio
-async def test_approve_guarda_decision_y_encola_con_redis_mock():
+async def test_approve_save_desicion_and_enqueues_redis_mock():
     job_id = "test-job-approval"
 
     task_data = {
         "job_id": job_id,
-        "query": "Explicar una prueba de hipótesis",
+        "query": "Explain what is a hypothesis test",
         "status": "waiting_approval",
-        "result": "La explicación generada por el agente",
+        "result": "Agent explanation",
         "error": None,
     }
 
@@ -117,7 +117,7 @@ async def test_approve_guarda_decision_y_encola_con_redis_mock():
                 f"/approve/{job_id}",
                 json={
                     "decision": "approve",
-                    "feedback": "La explicación es correcta",
+                    "feedback": "The explanation is correct",
                 },
             )
 
@@ -135,7 +135,7 @@ async def test_approve_guarda_decision_y_encola_con_redis_mock():
         f"approval_data:{job_id}",
         json.dumps({
             "decision": "approve",
-            "feedback": "La explicación es correcta",
+            "feedback": "The explanation is correct",
         }),
     )
 
@@ -145,7 +145,7 @@ async def test_approve_guarda_decision_y_encola_con_redis_mock():
     )
 
 @pytest.mark.asyncio
-async def test_approve_devuelve_404_si_tarea_no_existe_mock():
+async def test_approve_returns_404_if_task_doesnt_exist_mock():
     job_id = "job-inexistente"
 
     mock_redis = AsyncMock()
@@ -159,7 +159,7 @@ async def test_approve_devuelve_404_si_tarea_no_existe_mock():
                 f"/approve/{job_id}",
                 json={
                     "decision": "approve",
-                    "feedback": "La explicación es correcta",
+                    "feedback": "The explanation is correct",
                 },
             )
 
@@ -171,12 +171,12 @@ async def test_approve_devuelve_404_si_tarea_no_existe_mock():
     mock_redis.rpush.assert_not_awaited()
 
 @pytest.mark.asyncio
-async def test_approve_rechaza_tarea_fuera_de_estado_mock():
+async def test_approve_reject_task_if_it_is_out_of_state_mock():
     job_id = "test-job-pending"
 
     task_data = {
         "job_id": job_id,
-        "query": "Explicar una prueba de hipótesis",
+        "query": "Explain what is a hypothesis test",
         "status": "pending",
         "result": None,
         "error": None,
@@ -193,7 +193,7 @@ async def test_approve_rechaza_tarea_fuera_de_estado_mock():
                 f"/approve/{job_id}",
                 json={
                     "decision": "approve",
-                    "feedback": "La explicación es correcta",
+                    "feedback": "The explanation is correct",
                 },
             )
 
@@ -205,7 +205,7 @@ async def test_approve_rechaza_tarea_fuera_de_estado_mock():
     mock_redis.rpush.assert_not_awaited()
 
 @pytest.mark.asyncio
-async def test_process_falla_si_redis_no_puede_guardar():
+async def test_process_fails_if_redis_cant_save():
     mock_redis = AsyncMock()
     mock_redis.set.side_effect = ConnectionError(
         "Redis no disponible"
@@ -220,7 +220,7 @@ async def test_process_falla_si_redis_no_puede_guardar():
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post(
                 "/process",
-                json={"query": "¿Qué es una prueba de hipótesis?"},
+                json={"query": "What is a hypothesis test?"},
             )
     
     assert response.status_code == 500

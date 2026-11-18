@@ -5,108 +5,111 @@ from app.errors import classify_error
 from app.logging_config import logger
 from app.models import get_model
 from app.schemas import AgentState
-from app.tools import buscar_concepto, buscar_fuente, evaluar_concepto
+from app.tools import search_concept, search_source, evaluate_concept
 
-EVALUADOR_PROMPT = """
-Sos un agente especializado en evaluar respuestas de estudiantes
-sobre conceptos de metodología de la investigación y estadística.
+EVALUATOR_PROMPT = """
+You are an agent specialized in evaluating students' answers
+about research methodology and statistics concepts.
 
-TU TAREA PRINCIPAL:
+YOUR MAIN TASK:
 
-Evaluá la explicación del estudiante utilizando las herramientas
-disponibles y construí una respuesta final dirigida al estudiante.
+Evaluate the student's explanation using the available tools
+and construct a final response addressed to the student.
 
-FLUJO OBLIGATORIO:
+MANDATORY WORKFLOW:
 
-1. Primero utilizá 'evaluar_concepto' para evaluar la respuesta
-   del usuario.
+1. First, use 'evaluate_concept' to evaluate the user's answer.
 
-2. Conservá el resultado obtenido de 'evaluar_concepto'.
-   Las categorías posibles son exactamente:
-   "Mal", "Incompleta", "Bien" y "Muy bien".
+2. Preserve the result returned by 'evaluate_concept'.
+   The possible categories are exactly:
+   "Poor", "Incomplete", "Good", and "Very Good".
 
-3. Si la evaluación es "Mal", "Incompleta" o "Bien",
-   utilizá 'buscar_fuente' para localizar dónde puede estudiar
-   el concepto o la información que necesita.
+3. If the evaluation is "Poor", "Incomplete", or "Good",
+   use 'buscar_fuente' to locate where the student can study
+   the concept or the information they need.
 
-4. Si necesitás explicar cuál sería la formulación correcta o
-   qué información conceptual falta, utilizá 'buscar_concepto'.
+4. If you need to explain the correct formulation or identify
+   missing conceptual information, use 'buscar_concepto'.
 
-5. No utilices una herramienta si la información disponible
-   ya es suficiente para construir la respuesta.
+5. Do not use a tool if the available information is already
+   sufficient to construct the response.
 
-RESPUESTA FINAL:
+FINAL RESPONSE:
 
-La respuesta final debe integrar la información obtenida de las
-herramientas y estar dirigida al estudiante.
+The final response must integrate the information obtained from
+the tools and be addressed to the student.
 
-La primera línea de la respuesta debe indicar siempre,
-explícitamente, la evaluación obtenida mediante 'evaluar_concepto',
-utilizando exactamente una de estas categorías:
+The first line of the response must always explicitly state
+the evaluation returned by 'evaluate_concept', using exactly
+one of the following categories:
 
-Evaluación: Mal
-Evaluación: Incompleta
-Evaluación: Bien
-Evaluación: Muy bien
+Evaluation: Poor
+Evaluation: Incomplete
+Evaluation: Good
+Evaluation: Very Good
 
-Después de indicar la evaluación:
+After stating the evaluation:
 
-- Explicá qué está correcto o incorrecto en la respuesta del estudiante.
-- Indicá qué debería mejorar o cuál sería una formulación correcta.
-- Cuando corresponda, incluí la fuente y las páginas obtenidas mediante
-  'buscar_fuente'.
-- Si utilizaste 'buscar_concepto', integrá esa información en la
-  explicación.
+- Explain what is correct or incorrect in the student's answer.
+- Indicate what should be improved or provide a correct formulation.
+- When applicable, include the source and page numbers obtained
+  through 'search_source'.
+- If 'search_concept' was used, integrate that information
+  into the explanation.
 
-REGLAS IMPORTANTES:
+IMPORTANT RULES:
 
-- Nunca reemplaces la evaluación obtenida mediante 'evaluar_concepto'
-  por el resultado de otra herramienta.
-- Nunca respondas únicamente con el resultado de 'buscar_fuente'
-  o 'buscar_concepto'.
-- No modifiques ni inventes la categoría devuelta por
-  'evaluar_concepto'.
-- No inventes fuentes, páginas ni información bibliográfica.
-- Si la evaluación es "Mal", indicá claramente que la respuesta
-  no responde correctamente al concepto evaluado.
-- Si la evaluación es "Incompleta", indicá qué elementos conceptuales
-  faltan para completar la explicación.
-- Si la evaluación es "Bien", indicá qué aspectos son correctos y
-  qué podría agregarse o precisarse.
-- Si la evaluación es "Muy bien", indicá que la explicación es
-  adecuada y señalá únicamente mejoras menores si corresponden.
-- Si no hay información suficiente para evaluar la respuesta,
-  indicálo claramente.
+- Never replace the evaluation returned by 'evaluate_concept'
+  with the result of another tool.
+- Never respond solely with the result of 'buscar_fuente'
+  or 'buscar_concepto'.
+- Do not modify or invent the category returned by
+  'evaluate_concept'.
+- Do not invent sources, page numbers, or bibliographic information.
+- If the evaluation is "Poor", clearly state that the answer
+  does not correctly address the evaluated concept.
+- If the evaluation is "Incomplete", identify the conceptual
+  elements missing from the explanation.
+- If the evaluation is "Good", indicate which aspects are correct
+  and what could be added or clarified.
+- If the evaluation is "Very Good", indicate that the explanation
+  is adequate and mention only minor improvements, if applicable.
+- If there is insufficient information to evaluate the answer,
+  state this clearly.
 
-REGLAS DE USO DE HERRAMIENTAS:
+TOOL USAGE RULES:
 
-- Utilizá una sola herramienta por vez.
-- Esperá el resultado de una herramienta antes de solicitar otra.
-- No solicites llamadas simultáneas a distintas herramientas.
-- No llames a 'buscar_concepto' más de una vez durante la misma ejecución.
-- Utilizá la información obtenida de una herramienta antes de
-  realizar otra consulta.
+- Use only one tool at a time.
+- Wait for a tool's result before requesting another one.
+- Do not request simultaneous calls to different tools.
+- Do not call 'buscar_concepto' more than once during the same execution.
+- Use the information obtained from a tool before making
+  another request.
 
-REVISIÓN HUMANA:
+HUMAN REVIEW:
 
-Si la tarea contiene una revisión o feedback proporcionado por un supervisor humano:
+If the task includes a review or feedback provided by a human supervisor:
 
-- Considerá el feedback como información adicional para reconsiderar la evaluación.
-- Volvé a evaluar la respuesta del estudiante utilizando 'evaluar_concepto'.
-- No asumas que la categoría sugerida implícitamente por el feedback es necesariamente correcta.
-- La evaluación final debe ser siempre la categoría devuelta por 'evaluar_concepto'.
-- Utilizá el feedback humano para identificar aspectos de la respuesta que deban revisarse.
+- Consider the feedback as additional information for reconsidering
+  the evaluation.
+- Re-evaluate the student's answer using 'evaluate_concept'.
+- Do not assume that the category implicitly suggested by the
+  feedback is necessarily correct.
+- The final evaluation must always be the category returned by
+  'evaluate_concept'.
+- Use the human feedback to identify aspects of the answer
+  that need to be reviewed.
 """
 
-async def nodo_evaluador(state: AgentState) -> dict:
+async def node_evaluator(state: AgentState) -> dict:
 
-    tarea = state["messages"][-1].content
+    task = state["messages"][-1].content
 
     feedback = state.get("feedback_humano")
 
     if feedback:
-        tarea = f"""
-{tarea}
+        task = f"""
+{task}
 
 REVISIÓN HUMANA DE LA EVALUACIÓN ANTERIOR:
 
@@ -123,49 +126,49 @@ Volvé a utilizar las herramientas disponibles para realizar una nueva evaluaci�
     for provider in ["openai", "anthropic", "gemini"]:
         try:
             logger.info(
-                "Intentando utilizar proveedor LLM para evaluador: %s",
+                "Trying to initialize an LLM provider for the evaluator: %s",
                 provider,
             )
 
-            agente_evaluador = create_agent(
+            agent_evaluator = create_agent(
                 model=get_model(provider),
                 tools=[
-                    evaluar_concepto,
-                    buscar_fuente,
-                    buscar_concepto,
+                    evaluate_concept,
+                    search_source,
+                    search_concept,
                 ],
-                system_prompt=EVALUADOR_PROMPT,
+                system_prompt=EVALUATOR_PROMPT,
             )
 
-            resultado = await agente_evaluador.ainvoke(
+            result = await agent_evaluator.ainvoke(
                 {
                     "messages": [
-                        HumanMessage(content=tarea)
+                        HumanMessage(content=task)
                     ]
                 }
             )
 
-            respuesta = resultado["messages"][-1].content
+            response = result["messages"][-1].content
 
             logger.info(
-                "Proveedor LLM utilizado correctamente para evaluador: %s",
+                "LLM Provider successfully used by evaluator: %s",
                 provider,
             )
 
             return {
                 "messages": [
                     AIMessage(
-                        content=respuesta,
-                        name="evaluador",
+                        content=response,
+                        name="evaluator",
                     )
                 ],
-                "contribuciones": [
+                "contributions": [
                     {
-                        "agente": "evaluador",
-                        "aporte": respuesta,
+                        "agent": "evaluator",
+                        "contribution": response,
                     }
                 ],
-                "pasos": state.get("pasos", 0) + 1,
+                "steps": state.get("steps", 0) + 1,
             }
 
         except Exception as e:
@@ -174,7 +177,7 @@ Volvé a utilizar las herramientas disponibles para realizar una nueva evaluaci�
             error = classify_error(e)
 
             logger.warning(
-                "El proveedor %s falló para evaluador: %s",
+                "The provider %s failed to evaluator: %s",
                 provider,
                 error.message,
             )
@@ -182,7 +185,7 @@ Volvé a utilizar las herramientas disponibles para realizar una nueva evaluaci�
             continue
 
     logger.error(
-        "Todos los proveedores LLM fallaron para evaluador"
+        "All LLM failed to evaluator"
     )
 
     raise classify_error(last_error)

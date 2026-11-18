@@ -2,22 +2,22 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas import ResultadoEvaluacion
+from app.schemas import EvaluationResult
 
 
-def test_resultado_evaluacion_acepta_categoria_valida():
-    resultado = ResultadoEvaluacion(
-        evaluacion="Bien",
-        mejora="Podría ampliar la explicación.",
+def test_evaluation_result_accepts_valid_category():
+    result = EvaluationResult(
+        evaluation="Good",
+        improvement="Could expand on the explanation.",
     )
 
-    assert resultado.evaluacion == "Bien"
-    assert resultado.mejora == "Podría ampliar la explicación."
+    assert result.evaluacion == "Good"
+    assert result.improvement == "Could expand on the explanation."
 
 
-def test_resultado_evaluacion_rechaza_categoria_invalida():
+def test_evaluation_result_rejects_invalid_category():
     with pytest.raises(ValidationError):
-        ResultadoEvaluacion(
-            evaluacion="Excelente",
-            mejora="Sin mejoras.",
+        EvaluationResult(
+            evaluation="Excelent",
+            improvement="No improvement.",
         )

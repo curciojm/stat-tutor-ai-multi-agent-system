@@ -24,7 +24,7 @@ class CheckpointState(TypedDict):
 
 @pytest_asyncio.fixture
 async def redis_client():
-    """Conecta con Redis real para la prueba de integración."""
+    """Connects with redis for integration test"""
     client = aioredis.from_url(
         REDIS_URL,
         decode_responses=True,
@@ -35,30 +35,30 @@ async def redis_client():
         yield client
     except Exception as exc:
         pytest.fail(
-            f"No se pudo conectar con Redis en {REDIS_URL}: {exc}"
+            f"Connection failed with Redis at {REDIS_URL}: {exc}"
         )
     finally:
         await client.aclose()
 
 
 def crear_grafo():
-    """Crea un grafo mínimo para probar la persistencia."""
+    """A graph to test persistence."""
 
     builder = StateGraph(CheckpointState)
 
-    def guardar_mensaje(state: CheckpointState):
-        return {"mensaje": state["mensaje"]}
+    def save_message(state: CheckpointState):
+        return {"message": state["message"]}
 
-    builder.add_node("guardar", guardar_mensaje)
-    builder.add_edge(START, "guardar")
-    builder.add_edge("guardar", END)
+    builder.add_node("save", save_message)
+    builder.add_edge(START, "save")
+    builder.add_edge("save", END)
 
     return builder
 
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_checkpoint_persiste_tras_reabrir_checkpointer(redis_client):
+async def test_checkpoint_persitence_after_reopen_checkpoint(redis_client):
     thread_id = f"test-checkpoint-{uuid4()}"
     config = {
         "configurable": {
@@ -72,14 +72,14 @@ async def test_checkpoint_persiste_tras_reabrir_checkpointer(redis_client):
         app = builder.compile(checkpointer=checkpointer)
 
         await app.ainvoke(
-            {"mensaje": "estado persistido en Redis"},
+            {"message": "state persisted in Redis"},
             config=config,
         )
 
         estado = await app.aget_state(config)
 
-        assert estado.values["mensaje"] == (
-            "estado persistido en Redis"
+        assert estado.values["message"] == (
+            "state persisted in Redis"
         )
 
     async with AsyncRedisSaver.from_conn_string(REDIS_URL) as checkpointer:
@@ -87,6 +87,6 @@ async def test_checkpoint_persiste_tras_reabrir_checkpointer(redis_client):
 
         estado_recuperado = await app.aget_state(config)
 
-        assert estado_recuperado.values["mensaje"] == ("estado persistido en Redis")
+        assert estado_recuperado.values["message"] == ("state persisted in Redis")
         assert (estado_recuperado.config["configurable"]["thread_id"] == thread_id)
         assert estado_recuperado.created_at is not None

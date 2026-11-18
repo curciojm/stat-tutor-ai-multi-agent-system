@@ -15,16 +15,16 @@ POLL_INTERVAL_SECONDS = 2
 
 
 @pytest.mark.e2e
-def test_consulta_real_completa_end_to_end():
+def test_query_complete_end_to_end():
     """
-    Prueba el flujo real:
-    FastAPI -> Redis -> Worker -> LangGraph/RAG -> respuesta.
-    Requiere que run.sh esté ejecutándose y que las credenciales
-    de los servicios externos estén configuradas.
+    Test the actual workflow:
+    FastAPI -> Redis -> Worker -> LangGraph/RAG -> response.
+    Requires run.sh to be running and the credentials
+    for external services to be configured.
     """
 
     query = (
-        "Explicá brevemente qué es la regresión y cómo se calcula."
+        "Explain what regression is and how to calculate."
     )
 
     with httpx.Client(base_url=BASE_URL,timeout=30) as client:
@@ -35,7 +35,7 @@ def test_consulta_real_completa_end_to_end():
         )
 
         assert response.status_code == 200, (
-            f"Error al crear la tarea: {response.text}"
+            f"Error in task initialization: {response.text}"
         )
 
         task = response.json()
@@ -66,23 +66,23 @@ def test_consulta_real_completa_end_to_end():
 
             if last_status == "failed":
                 pytest.fail(
-                    "El procesamiento falló: "
+                    "Process failed: "
                     f"{task_status.get('error')}"
                 )
 
             if last_status == "waiting_approval":
                 pytest.fail(
-                    "La tarea quedó esperando aprobación humana; "
-                    "esta prueba esperaba una respuesta automática."
+                    "The task is waiting for human approval; "
+                    "this test expected an automatic response."
                 )
 
             time.sleep(POLL_INTERVAL_SECONDS)
 
         else:
             pytest.fail(
-                f"La tarea {job_id} no terminó en "
-                f"{TIMEOUT_SECONDS} segundos. "
-                f"Último estado: {last_status}"
+                f"The task {job_id} didn't end in "
+                f"{TIMEOUT_SECONDS} seconds. "
+                f"Last state: {last_status}"
             )
 
         final_response = client.get(
@@ -96,27 +96,27 @@ def test_consulta_real_completa_end_to_end():
         
     assert result["status"] == "completed"
 
-    respuesta = result.get("result")
+    response = result.get("result")
 
-    assert respuesta, "La tarea terminó sin respuesta."
+    assert response, "The task end it with out response."
 
-    if isinstance(respuesta, str):
-        texto_respuesta = respuesta
-    elif isinstance(respuesta, list):
+    if isinstance(response, str):
+        text_response = response
+    elif isinstance(response, list):
         textos = [
             bloque["text"]
-            for bloque in respuesta
+            for bloque in response
             if isinstance(bloque, dict)
             and bloque.get("type") == "text"
             and isinstance(bloque.get("text"), str)
         ]
-        texto_respuesta = "\n".join(textos)
+        text_response = "\n".join(textos)
     else:
         pytest.fail(
-            f"Formato de respuesta inesperado: "
-            f"{type(respuesta).__name__}"
+            f"Unexpected response format: "
+            f"{type(response).__name__}"
         )
 
-    assert texto_respuesta.strip(), ("La tarea terminó sin una respuesta de texto útil.")
+    assert text_response.strip(), ("The task end it with out a useful text response.")
     assert result.get("error") is None
 

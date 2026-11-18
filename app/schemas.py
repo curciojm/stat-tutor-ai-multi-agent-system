@@ -29,10 +29,10 @@ class AgentState(MessagesState):
     reviews: int
 
 class ApprovalRequest(BaseModel):
-    desition: Literal["approve", "reject"]
+    decision: Literal["approve", "reject"]
     feedback: str = ""
 
-class DesitionSupervisor(BaseModel):
+class DecisionSupervisor(BaseModel):
 
     next: Literal["teacher", "evaluator", "FINISH"] = Field(
         description=(
@@ -41,7 +41,7 @@ class DesitionSupervisor(BaseModel):
     )
 
     reason: str = Field(
-        description="Brief justification of the desition."
+        description="Brief justification of the decision."
     )
 
 class ConceptResult(BaseModel):

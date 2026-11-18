@@ -4,17 +4,17 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from langchain_core.messages import HumanMessage
 
-from app.worker import main_worker, procesar_aprobacion
+from app.worker import main_worker, approval_processing
 
 
 @pytest.mark.asyncio
-async def test_procesar_aprobacion_marca_failed_si_falla_el_grafo():
+async def test_process_approval_marks_failed_if_graph_fails():
 
     job_id = "test-job-123"
 
     task_data = {
         "job_id": job_id,
-        "query": "Evaluar una respuesta sobre la media.",
+        "query": "Evaluate a response about the mean.",
         "status": "waiting_approval",
         "result": None,
         "error": None,
@@ -34,48 +34,48 @@ async def test_procesar_aprobacion_marca_failed_si_falla_el_grafo():
 
     fake_app = AsyncMock()
     fake_app.ainvoke.side_effect = Exception(
-        "Error simulado del grafo"
+        "Simulated graph error"
     )
 
     with patch(
         "app.worker.redis_client",
         fake_redis,
     ):
-        await procesar_aprobacion(
+        await approval_processing(
             job_id,
             fake_app,
         )
 
-    llamadas_set = fake_redis.set.await_args_list
+    calls_set = fake_redis.set.await_args_list
 
-    ultima_llamada = llamadas_set[-1]
+    last_call = calls_set[-1]
 
-    key_guardada = ultima_llamada.args[0]
-    datos_guardados = json.loads(
-        ultima_llamada.args[1]
+    key_guardada = last_call.args[0]
+    data_saved = json.loads(
+        last_call.args[1]
     )
 
     assert key_guardada == f"task_status:{job_id}"
-    assert datos_guardados["status"] == "failed"
-    assert datos_guardados["result"] is None
-    assert datos_guardados["error"] == "Error simulado del grafo"
+    assert data_saved["status"] == "failed"
+    assert data_saved["result"] is None
+    assert data_saved["error"] == "Evaluate a response about the mean."
 
     fake_app.ainvoke.assert_awaited_once()
 
 @pytest.mark.asyncio
-async def test_main_worker_completa_tarea_exitosamente():
+async def test_main_worker_completes_task_successfully():
 
     job_id = "test-job-success"
 
     task_data = {
         "job_id": job_id,
-        "query": "Explicá qué es la media.",
+        "query": "Explain what is the mean.",
         "status": "pending",
         "result": None,
         "error": None,
     }
 
-    respuesta = "La media es el promedio aritmético."
+    response = "The mean is the arithmetic average."
 
 
     fake_redis = AsyncMock()
@@ -89,11 +89,11 @@ async def test_main_worker_completa_tarea_exitosamente():
     fake_app = AsyncMock()
     fake_app.ainvoke.return_value = {
         "messages": [
-            HumanMessage(content=respuesta)
+            HumanMessage(content=response)
         ]
     }
 
-    fake_grafo = type(
+    fake_graph = type(
         "FakeGraph",
         (),
         {"compile": lambda self, checkpointer: fake_app},
@@ -111,13 +111,13 @@ async def test_main_worker_completa_tarea_exitosamente():
 
     with (
         patch("app.worker.redis_client", fake_redis),
-        patch("app.worker.grafo", fake_grafo),
+        patch("app.worker.graph", fake_graph),
         patch(
             "app.worker.AsyncRedisSaver.from_conn_string",
             return_value=FakeSaver(),
         ),
         patch("app.worker.serializar_traza", return_value=[]),
-        patch("app.worker.guardar_traza"),
+        patch("app.worker.save_trace"),
         patch(
             "app.worker.asyncio.sleep",
             side_effect=StopWorker,
@@ -130,23 +130,23 @@ async def test_main_worker_completa_tarea_exitosamente():
 
     assert fake_redis.set.await_count == 2
 
-    ultimo_set = fake_redis.set.await_args_list[-1]
-    key_guardada = ultimo_set.args[0]
-    estado_final = json.loads(ultimo_set.args[1])
+    last_set = fake_redis.set.await_args_list[-1]
+    saved_key = last_set.args[0]
+    final_state = json.loads(last_set.args[1])
 
-    assert key_guardada == f"task_status:{job_id}"
-    assert estado_final["status"] == "completed"
-    assert estado_final["result"] == respuesta
-    assert estado_final["error"] is None
+    assert saved_key == f"task_status:{job_id}"
+    assert final_state["status"] == "completed"
+    assert final_state["result"] == response
+    assert final_state["error"] is None
 
 @pytest.mark.asyncio
-async def test_main_worker_deja_tarea_esperando_aprobacion():
+async def test_main_worker_leaves_task_waiting_for_approval():
 
     job_id = "test-job-approval"
 
     task_data = {
         "job_id": job_id,
-        "query": "Evaluá mi respuesta sobre la media.",
+        "query": "Evaluate my answer about the mean.",
         "status": "pending",
         "result": None,
         "error": None,
@@ -162,10 +162,10 @@ async def test_main_worker_deja_tarea_esperando_aprobacion():
 
     fake_app = AsyncMock()
     fake_app.ainvoke.return_value = {
-        "__interrupt__": ["Esperando aprobación humana"]
+        "__interrupt__": ["Waiting for human approval"]
     }
 
-    fake_grafo = type(
+    fake_graph = type(
         "FakeGraph",
         (),
         {"compile": lambda self, checkpointer: fake_app},
@@ -183,7 +183,7 @@ async def test_main_worker_deja_tarea_esperando_aprobacion():
 
     with (
         patch("app.worker.redis_client", fake_redis),
-        patch("app.worker.grafo", fake_grafo),
+        patch("app.worker.graph", fake_graph),
         patch(
             "app.worker.AsyncRedisSaver.from_conn_string",
             return_value=FakeSaver(),
@@ -195,12 +195,12 @@ async def test_main_worker_deja_tarea_esperando_aprobacion():
 
     fake_app.ainvoke.assert_awaited_once()
 
-    ultimo_set = fake_redis.set.await_args_list[-1]
-    estado_final = json.loads(ultimo_set.args[1])
+    last_set = fake_redis.set.await_args_list[-1]
+    fianl_state = json.loads(last_set.args[1])
 
-    assert estado_final["status"] == "waiting_approval"
-    assert estado_final["result"] is None
-    assert estado_final["error"] is None
+    assert fianl_state["status"] == "waiting_approval"
+    assert fianl_state["result"] is None
+    assert fianl_state["error"] is None
 
 @pytest.mark.asyncio
 async def test_procesar_aprobacion_completa_tarea_exitosamente():
@@ -209,7 +209,7 @@ async def test_procesar_aprobacion_completa_tarea_exitosamente():
 
     task_data = {
         "job_id": job_id,
-        "query": "Evaluar una respuesta sobre la media.",
+        "query": "Evaluate answer about the mean.",
         "status": "waiting_approval",
         "result": None,
         "error": None,
@@ -217,7 +217,7 @@ async def test_procesar_aprobacion_completa_tarea_exitosamente():
 
     approval_data = {
         "decision": "approve",
-        "feedback": "La respuesta es correcta.",
+        "feedback": "The answer is correct.",
     }
 
     fake_redis = AsyncMock()
@@ -227,21 +227,21 @@ async def test_procesar_aprobacion_completa_tarea_exitosamente():
         json.dumps(approval_data),
     ]
 
-    respuesta = "La media es el promedio aritmético."
+    response = "The mean is the arithmetic average."
 
     fake_app = AsyncMock()
     fake_app.ainvoke.return_value = {
         "messages": [
-            HumanMessage(content=respuesta)
+            HumanMessage(content=response)
         ]
     }
 
     with (
         patch("app.worker.redis_client", fake_redis),
         patch(
-            "app.worker.guardar_evento_humano",
+            "app.worker.save_human_event",
             new_callable=AsyncMock,
-        ) as guardar_evento,
+        ) as save_event,
         patch(
             "app.worker.obtener_eventos_humanos",
             new_callable=AsyncMock,
@@ -249,19 +249,19 @@ async def test_procesar_aprobacion_completa_tarea_exitosamente():
                 {
                     "tipo": "HumanApproval",
                     "decision": "approve",
-                    "feedback": "La respuesta es correcta.",
+                    "feedback": "The answer is correct.",
                 }
             ],
         ),
         patch("app.worker.serializar_traza", return_value=[]),
-        patch("app.worker.guardar_traza") as guardar_traza,
+        patch("app.worker.save_trace") as save_trace,
     ):
-        await procesar_aprobacion(job_id, fake_app)
+        await approval_processing(job_id, fake_app)
 
-    guardar_evento.assert_awaited_once_with(
+    save_event.assert_awaited_once_with(
         job_id=job_id,
         decision="approve",
-        feedback="La respuesta es correcta.",
+        feedback="The answer is correct.",
     )
 
     fake_app.ainvoke.assert_awaited_once()
@@ -270,28 +270,28 @@ async def test_procesar_aprobacion_completa_tarea_exitosamente():
 
     assert args[0].resume == {
         "decision": "approve",
-        "feedback": "La respuesta es correcta.",
+        "feedback": "The answer is correct.",
     }
     assert kwargs["config"]["configurable"]["thread_id"] == job_id
 
-    guardar_traza.assert_called_once()
+    save_trace.assert_called_once()
 
-    ultimo_set = fake_redis.set.await_args_list[-1]
-    estado_final = json.loads(ultimo_set.args[1])
+    last_set = fake_redis.set.await_args_list[-1]
+    final_state = json.loads(last_set.args[1])
 
-    assert ultimo_set.args[0] == f"task_status:{job_id}"
-    assert estado_final["status"] == "completed"
-    assert estado_final["result"] == respuesta
-    assert estado_final["error"] is None
+    assert last_set.args[0] == f"task_status:{job_id}"
+    assert final_state["status"] == "completed"
+    assert final_state["result"] == response
+    assert final_state["error"] is None
 
 
     fake_redis.delete.assert_any_await(f"approval_data:{job_id}")
     fake_redis.delete.assert_any_await(f"human_events:{job_id}")
 
 @pytest.mark.asyncio
-async def test_procesar_aprobacion_no_hace_nada_si_job_no_existe():
+async def test_process_approval_does_nothing_if_job_does_not_exist():
 
-    job_id = "job-inexistente"
+    job_id = "job-non-existent"
 
     fake_redis = AsyncMock()
     fake_redis.get.return_value = None
@@ -299,7 +299,7 @@ async def test_procesar_aprobacion_no_hace_nada_si_job_no_existe():
     fake_app = AsyncMock()
 
     with patch("app.worker.redis_client", fake_redis):
-        await procesar_aprobacion(job_id, fake_app)
+        await approval_processing(job_id, fake_app)
 
     fake_redis.get.assert_awaited_once_with(
         f"task_status:{job_id}"
@@ -309,13 +309,13 @@ async def test_procesar_aprobacion_no_hace_nada_si_job_no_existe():
     fake_redis.set.assert_not_awaited()
 
 @pytest.mark.asyncio
-async def test_procesar_aprobacion_no_hace_nada_si_no_hay_aprobacion():
+async def test_process_approval_does_nothing_if_no_approval_is_pending():
 
-    job_id = "test-job-sin-aprobacion"
+    job_id = "test-job-no-approval"
 
     task_data = {
         "job_id": job_id,
-        "query": "Explicá la media.",
+        "query": "Explain the mean.",
         "status": "waiting_approval",
         "result": None,
         "error": None,
@@ -330,7 +330,7 @@ async def test_procesar_aprobacion_no_hace_nada_si_no_hay_aprobacion():
     fake_app = AsyncMock()
 
     with patch("app.worker.redis_client", fake_redis):
-        await procesar_aprobacion(job_id, fake_app)
+        await approval_processing(job_id, fake_app)
 
     assert fake_redis.get.await_count == 2
 
@@ -339,13 +339,13 @@ async def test_procesar_aprobacion_no_hace_nada_si_no_hay_aprobacion():
 
 
 @pytest.mark.asyncio
-async def test_procesar_aprobacion_vuelve_a_esperar_aprobacion():
+async def test_process_approval_returns_to_waiting_for_approval():
 
-    job_id = "test-job-segunda-aprobacion"
+    job_id = "test-job-second-approval"
 
     task_data = {
         "job_id": job_id,
-        "query": "Evaluar una respuesta sobre la media.",
+        "query": "Evaluate answer about the mean.",
         "status": "waiting_approval",
         "result": None,
         "error": None,
@@ -353,7 +353,7 @@ async def test_procesar_aprobacion_vuelve_a_esperar_aprobacion():
 
     approval_data = {
         "decision": "reject",
-        "feedback": "La respuesta necesita una corrección.",
+        "feedback": "The answer needs review.",
     }
 
     fake_redis = AsyncMock()
@@ -365,7 +365,7 @@ async def test_procesar_aprobacion_vuelve_a_esperar_aprobacion():
 
     fake_app = AsyncMock()
     fake_app.ainvoke.return_value = {
-        "__interrupt__": ["Se necesita otra aprobación"]
+        "__interrupt__": ["Needs another approvement"]
     }
 
     with (
@@ -373,23 +373,23 @@ async def test_procesar_aprobacion_vuelve_a_esperar_aprobacion():
         patch(
             "app.worker.guardar_evento_humano",
             new_callable=AsyncMock,
-        ) as guardar_evento,
+        ) as save_event,
     ):
-        await procesar_aprobacion(job_id, fake_app)
+        await approval_processing(job_id, fake_app)
 
-    guardar_evento.assert_awaited_once_with(
+    save_event.assert_awaited_once_with(
         job_id=job_id,
         decision="reject",
-        feedback="La respuesta necesita una corrección.",
+        feedback="The answer needs review.",
     )
 
-    ultimo_set = fake_redis.set.await_args_list[-1]
-    estado_final = json.loads(ultimo_set.args[1])
+    last_set = fake_redis.set.await_args_list[-1]
+    final_state = json.loads(last_set.args[1])
 
-    assert ultimo_set.args[0] == f"task_status:{job_id}"
-    assert estado_final["status"] == "waiting_approval"
-    assert estado_final["result"] is None
-    assert estado_final["error"] is None
+    assert last_set.args[0] == f"task_status:{job_id}"
+    assert final_state["status"] == "waiting_approval"
+    assert final_state["result"] is None
+    assert final_state["error"] is None
 
     fake_redis.delete.assert_awaited_once_with(f"approval_data:{job_id}")
 
@@ -397,13 +397,13 @@ async def test_procesar_aprobacion_vuelve_a_esperar_aprobacion():
 
 
 @pytest.mark.asyncio
-async def test_procesar_aprobacion_falla_si_no_puede_guardar_evento_humano():
+async def test_process_approval_fails_if_human_event_cannot_be_saved():
 
-    job_id = "test-job-error-evento"
+    job_id = "test-job-error-event"
 
     task_data = {
         "job_id": job_id,
-        "query": "Evaluar una respuesta sobre la media.",
+        "query": "Evaluate an answer about the mean.",
         "status": "waiting_approval",
         "result": None,
         "error": None,
@@ -411,7 +411,7 @@ async def test_procesar_aprobacion_falla_si_no_puede_guardar_evento_humano():
 
     approval_data = {
         "decision": "approve",
-        "feedback": "La respuesta es correcta.",
+        "feedback": "The answer is correct.",
     }
 
     fake_redis = AsyncMock()
@@ -428,23 +428,23 @@ async def test_procesar_aprobacion_falla_si_no_puede_guardar_evento_humano():
             "app.worker.guardar_evento_humano",
             new_callable=AsyncMock,
             side_effect=ConnectionError("Redis no disponible"),
-        ) as guardar_evento,
+        ) as save_event,
     ):
-        await procesar_aprobacion(job_id, fake_app)
+        await approval_processing(job_id, fake_app)
 
-    guardar_evento.assert_awaited_once_with(
+    save_event.assert_awaited_once_with(
         job_id=job_id,
         decision="approve",
-        feedback="La respuesta es correcta.",
+        feedback="The answer is correct.",
     )
 
-    ultimo_set = fake_redis.set.await_args_list[-1]
-    estado_final = json.loads(ultimo_set.args[1])
+    last_set = fake_redis.set.await_args_list[-1]
+    final_state = json.loads(last_set.args[1])
 
-    assert ultimo_set.args[0] == f"task_status:{job_id}"
-    assert estado_final["status"] == "failed"
-    assert estado_final["result"] is None
-    assert estado_final["error"] == "Redis no disponible"
+    assert last_set.args[0] == f"task_status:{job_id}"
+    assert final_state["status"] == "failed"
+    assert final_state["result"] is None
+    assert final_state["error"] == "Redis no disponible"
 
     fake_app.ainvoke.assert_not_awaited()
 
@@ -452,13 +452,13 @@ async def test_procesar_aprobacion_falla_si_no_puede_guardar_evento_humano():
 
 
 @pytest.mark.asyncio
-async def test_main_worker_marca_failed_si_falla_el_grafo():
+async def test_main_worker_marks_task_as_failed_if_graph_fails():
 
     job_id = "test-job-worker-error"
 
     task_data = {
         "job_id": job_id,
-        "query": "Explicá qué es la media.",
+        "query": "Explain what is the mean.",
         "status": "pending",
         "result": None,
         "error": None,
@@ -474,10 +474,10 @@ async def test_main_worker_marca_failed_si_falla_el_grafo():
 
     fake_app = AsyncMock()
     fake_app.ainvoke.side_effect = Exception(
-        "Error simulado del grafo"
+        "Error simulado del graph"
     )
 
-    fake_grafo = type(
+    fake_graph = type(
         "FakeGraph",
         (),
         {"compile": lambda self, checkpointer: fake_app},
@@ -495,7 +495,7 @@ async def test_main_worker_marca_failed_si_falla_el_grafo():
 
     with (
         patch("app.worker.redis_client", fake_redis),
-        patch("app.worker.grafo", fake_grafo),
+        patch("app.worker.graph", fake_graph),
         patch(
             "app.worker.AsyncRedisSaver.from_conn_string",
             return_value=FakeSaver(),
@@ -512,19 +512,19 @@ async def test_main_worker_marca_failed_si_falla_el_grafo():
 
     assert fake_redis.set.await_count == 2
 
-    ultimo_set = fake_redis.set.await_args_list[-1]
-    estado_final = json.loads(ultimo_set.args[1])
+    last_set = fake_redis.set.await_args_list[-1]
+    final_state = json.loads(last_set.args[1])
 
-    assert ultimo_set.args[0] == f"task_status:{job_id}"
-    assert estado_final["status"] == "failed"
-    assert estado_final["result"] is None
-    assert estado_final["error"] == "Error simulado del grafo"
+    assert last_set.args[0] == f"task_status:{job_id}"
+    assert final_state["status"] == "failed"
+    assert final_state["result"] is None
+    assert final_state["error"] == "Error simulating the graph"
 
 
 @pytest.mark.asyncio
-async def test_main_worker_ignora_tarea_que_no_existe_en_redis():
+async def test_main_worker_ignores_task_that_does_not_exist_in_redis():
 
-    job_id = "test-job-inexistente"
+    job_id = "test-job-non-existent"
 
     fake_redis = AsyncMock()
     fake_redis.lpop.side_effect = [
@@ -536,7 +536,7 @@ async def test_main_worker_ignora_tarea_que_no_existe_en_redis():
 
     fake_app = AsyncMock()
 
-    fake_grafo = type(
+    fake_graph = type(
         "FakeGraph",
         (),
         {"compile": lambda self, checkpointer: fake_app},
@@ -554,7 +554,7 @@ async def test_main_worker_ignora_tarea_que_no_existe_en_redis():
 
     with (
         patch("app.worker.redis_client", fake_redis),
-        patch("app.worker.grafo", fake_grafo),
+        patch("app.worker.graph", fake_graph),
         patch(
             "app.worker.AsyncRedisSaver.from_conn_string",
             return_value=FakeSaver(),
@@ -574,9 +574,9 @@ async def test_main_worker_ignora_tarea_que_no_existe_en_redis():
 
 
 @pytest.mark.asyncio
-async def test_main_worker_ignora_aprobacion_de_job_inexistente():
+async def test_main_worker_ignores_approval_for_nonexistent_job():
 
-    job_id = "test-approval-job-inexistente"
+    job_id = "test-approval-job-non-existent"
 
     fake_redis = AsyncMock()
 
@@ -591,7 +591,7 @@ async def test_main_worker_ignora_aprobacion_de_job_inexistente():
 
     fake_app = AsyncMock()
 
-    fake_grafo = type(
+    fake_graph = type(
         "FakeGraph",
         (),
         {"compile": lambda self, checkpointer: fake_app},
@@ -609,7 +609,7 @@ async def test_main_worker_ignora_aprobacion_de_job_inexistente():
 
     with (
         patch("app.worker.redis_client", fake_redis),
-        patch("app.worker.grafo", fake_grafo),
+        patch("app.worker.graph", fake_graph),
         patch(
             "app.worker.AsyncRedisSaver.from_conn_string",
             return_value=FakeSaver(),

@@ -32,7 +32,7 @@ logger.info("Initializing Phoenix...")
 configurar_observabilidad()
 logger.info("Phoenix successfully initializated.")
 
-async def save_human_event(job_id: str, desition: str, feedback: str):
+async def save_human_event(job_id: str, decision: str, feedback: str):
     """
     Store each human interaction in Redis.
 
@@ -42,7 +42,7 @@ async def save_human_event(job_id: str, desition: str, feedback: str):
 
     event = {
         "type": "HumanApproval",
-        "desition": desition,
+        "decision": decision,
         "feedback": feedback,
     }
 
@@ -109,7 +109,7 @@ async def approval_processing(job_id, app):
 
     approval_data = json.loads(raw_approval)
 
-    desition = approval_data["desition"]
+    decision = approval_data["decision"]
     feedback = approval_data["feedback"]
 
     try:
@@ -117,12 +117,12 @@ async def approval_processing(job_id, app):
         logger.info(
             "Human decision received for job %s: decision=%s",
             job_id,
-            desition
+            decision
             )
 
         await save_human_event(
             job_id=job_id,
-            decision=desition,
+            decision=decision,
             feedback=feedback,
         )
 
@@ -136,7 +136,7 @@ async def approval_processing(job_id, app):
         result = await app.ainvoke(
             Command(
                 resume={
-                    "desition": desition,
+                    "decision": decision,
                     "feedback": feedback,
                 }
             ),

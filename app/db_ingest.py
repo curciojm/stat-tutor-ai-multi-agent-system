@@ -10,7 +10,7 @@ from app.db_config import (
     NAMESPACE,
     PINECONE_API_KEY,
 )
-from app.setup import procesamiento_desde_pdfs, recuperar_documentos_de_pinecone
+from app.setup import pdf_processing, retrieve_pinecone_documents
 
 
 async def setup_vector_infrastructure(
@@ -49,7 +49,7 @@ async def setup_vector_infrastructure(
 
     if vector_count == 0:
 
-        processed_documents = procesamiento_desde_pdfs()
+        processed_documents = pdf_processing()
 
         vectorstore = PineconeVectorStore.from_documents(
             documents=processed_documents,
@@ -60,7 +60,7 @@ async def setup_vector_infrastructure(
 
     else:
 
-        processed_documents = recuperar_documentos_de_pinecone(index)
+        processed_documents = retrieve_pinecone_documents(index)
 
         vectorstore = PineconeVectorStore(
             index_name=INDEX_NAME,

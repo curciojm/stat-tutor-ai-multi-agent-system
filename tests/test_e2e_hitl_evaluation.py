@@ -10,29 +10,29 @@ POLL_INTERVAL_SECONDS = 2
 
 
 @pytest.mark.e2e
-def test_evaluacion_con_aprobacion_humana():
+def test_evaluation_with_human_approve():
     """
-    Comprueba el recorrido real:
-    solicitud -> supervisor -> aprobación humana -> evaluador.
-    Requiere API, worker, Redis, Pinecone y proveedores LLM activos.
+    Verifies the actual workflow:
+    request -> supervisor -> human approval -> evaluator.
+    Requires the API, worker, Redis, Pinecone, and LLM providers to be running.
     """
 
-    consulta = """
-    Quiero que evalúes la siguiente respuesta de un estudiante.
+    query = """
+    I want you to evaluate the following student's answer.
 
-    Pregunta: ¿Qué es la correlación?
+    Question: What is correlation?
 
-    Respuesta del estudiante:
-    "La correlacion consiste en el calculo de un promedio entre dos grupos distintos "
-    "para ver que grupo tiene mayor promedio"
+    Student's answer:
+    "Correlation consists of calculating an average between two different groups
+    to determine which group has the higher average."
 
-    Indicá si la respuesta es correcta y justificá brevemente
-    la evaluación.
+    Indicate whether the answer is correct and briefly justify
+    your evaluation.
     """
 
     response = httpx.post(
         f"{BASE_URL}/process",
-        json={"query": consulta},
+        json={"query": query},
         timeout=15,
     )
     response.raise_for_status()
@@ -41,8 +41,8 @@ def test_evaluacion_con_aprobacion_humana():
     assert job_id
 
     deadline = time.monotonic() + TIMEOUT_SECONDS
-    estado = None
-    aprobaciones_enviadas = 0
+    state = None
+    approvals_send = 0
 
     while time.monotonic() < deadline:
         response = httpx.get(
@@ -50,18 +50,18 @@ def test_evaluacion_con_aprobacion_humana():
             timeout=15,
         )
         response.raise_for_status()
-        tarea = response.json()
-        estado = tarea["status"]
+        task = response.json()
+        state = task["status"]
 
-        if estado == "waiting_approval" and aprobaciones_enviadas == 0:
+        if state == "waiting_approval" and approvals_send == 0:
             response = httpx.post(
                 f"{BASE_URL}/approve/{job_id}",
                 json={
                     "decision": "approve",
                     "feedback": (
-                        "Continuá con la evaluación de la respuesta. "
-                        "Agregá un ejemplo que involucre niveles de ansiedad "
-                        "y frecuencia de palabras recordadas."
+                        "Continue evaluating the answer. "
+                        "Add an example involving anxiety levels "
+                        "and the frequency of words recalled."
                     ),
                 },
                 timeout=15,
@@ -69,42 +69,42 @@ def test_evaluacion_con_aprobacion_humana():
             response.raise_for_status()
             aprobaciones_enviadas += 1
 
-        elif estado == "completed":
+        elif state == "completed":
             break
 
-        elif estado == "failed":
+        elif state == "failed":
             pytest.fail(
-                f"La tarea falló. Detalle: {tarea.get('error')}"
+                f"The task failed. Detail: {task.get('error')}"
             )
             response.raise_for_status()
             aprobaciones_enviadas += 1
 
-        elif estado == "completed":
+        elif state == "completed":
             break
 
-        elif estado == "failed":
+        elif state == "failed":
             pytest.fail(
-                f"La tarea falló. Detalle: {tarea.get('error')}"
+                f"The task failed. Detail: {task.get('error')}"
             )
 
         time.sleep(POLL_INTERVAL_SECONDS)
 
-    assert estado == "completed", (
+    assert state == "completed", (
         f"La tarea no terminó dentro de {TIMEOUT_SECONDS} segundos. "
-        f"Último estado: {estado}"
+        f"Último estado: {state}"
     )
 
-    assert aprobaciones_enviadas >= 1, ("La tarea terminó sin pasar por la aprobación humana.")
+    assert aprobaciones_enviadas >= 1, ("The task end it with out human approval.")
 
-    resultado = tarea.get("result")
-    assert resultado, "La tarea terminó sin resultado."
+    result = task.get("result")
+    assert result, "The task end it with out result."
 
-    if isinstance(resultado, str):
-        texto_resultado = resultado
+    if isinstance(result, str):
+        text_result = result
     else:
-        texto_resultado = str(resultado)
+        text_result = str(result)
 
-    assert "Evaluación:" in texto_resultado, (
-        "El resultado final no contiene la clasificación esperada. "
-        f"Resultado recibido: {texto_resultado}"
+    assert "evaluation:" in text_result, (
+        "The final result does not contain the expected classification. "
+        f"Received result: {text_result}"
     )

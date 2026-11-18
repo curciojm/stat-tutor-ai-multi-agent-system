@@ -19,7 +19,7 @@ REDIS_URL = os.getenv(
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.e2e
-async def test_checkpoint_hitl_se_reanuda_tras_reabrir_checkpointer():
+async def test_checkpoint_hitl_restablish_after_reopen_checkpointer():
     thread_id = f"test-hitl-{uuid4()}"
     config = {
         "configurable": {"thread_id": thread_id},
@@ -35,14 +35,14 @@ async def test_checkpoint_hitl_se_reanuda_tras_reabrir_checkpointer():
                     {
                         "role": "user",
                         "content": (
-                            "Evaluá mi respuesta sobre la media: "
-                            "es la suma de los valores dividida "
-                            "por la cantidad de observaciones."
+                            "Evaluate my answer about the mean: "
+                            "it is the sum of the values divided "
+                            "by the number of observations."
                         ),
                     }
                 ],
                 "job_id": thread_id,
-                "revision_humana": True,
+                "human_review": True,
             },
             config=config,
         )

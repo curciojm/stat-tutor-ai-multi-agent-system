@@ -40,7 +40,7 @@ async def async_client(fresh_app_redis_client):
 
 @pytest_asyncio.fixture
 async def redis_client():
-    """Conecta con Redis real, sin mocks."""
+    """Connects with Redis"""
     connection = aioredis.from_url(
         REDIS_URL,
         decode_responses=True,
@@ -50,7 +50,7 @@ async def redis_client():
         await connection.ping()
     except Exception as exc:
         await connection.aclose()
-        pytest.fail(f"No se pudo conectar con Redis en {REDIS_URL}: {exc}")
+        pytest.fail(f"Redis connection failed in {REDIS_URL}: {exc}")
 
     try:
         yield connection
@@ -58,10 +58,10 @@ async def redis_client():
         await connection.aclose()
 
 @pytest.mark.asyncio
-async def test_process_persiste_estado_y_encola_tarea(redis_client,async_client):
+async def test_process_persists_state_and_enqueues_task(redis_client,async_client):
     response = await async_client.post(
         "/process",
-        json={"query": "Explicá qué es la media."},
+        json={"query": "Explain what the mean is."},
     )
 
     assert response.status_code == 200
@@ -76,7 +76,7 @@ async def test_process_persiste_estado_y_encola_tarea(redis_client,async_client)
         task_data = json.loads(raw_data)
 
         assert task_data["job_id"] == job_id
-        assert task_data["query"] == "Explicá qué es la media."
+        assert task_data["query"] == "Explain what the mean is."
         assert task_data["status"] == "pending"
         assert task_data["result"] is None
         assert task_data["error"] is None
@@ -92,13 +92,13 @@ async def test_process_persiste_estado_y_encola_tarea(redis_client,async_client)
 
 
 @pytest.mark.asyncio
-async def test_status_recupera_estado_persistido(redis_client, async_client):
+async def test_status_retrieves_persisted_state(redis_client, async_client):
     job_id = f"test-{uuid.uuid4()}"
     status_key = f"{STATUS_PREFIX}{job_id}"
 
     task_data = {
         "job_id": job_id,
-        "query": "Consulta de integración",
+        "query": "Integration query",
         "status": "processing",
         "result": None,
         "error": None,
@@ -119,7 +119,7 @@ async def test_status_recupera_estado_persistido(redis_client, async_client):
         await redis_client.delete(status_key)
 
 @pytest.mark.asyncio
-async def test_status_devuelve_404_para_job_inexistente(
+async def test_status_returns_404_for_nonexistent_job(
     redis_client,
     async_client,
 ):
@@ -134,14 +134,14 @@ async def test_status_devuelve_404_para_job_inexistente(
     assert response.json()["detail"] == "Job not found"
 
 @pytest.mark.asyncio
-async def test_approve_rechaza_tarea_que_no_espera_aprobacion(redis_client, async_client):
+async def test_approve_rejects_task_that_is_not_awaiting_approval(redis_client, async_client):
     job_id = f"test-{uuid.uuid4()}"
     status_key = f"{STATUS_PREFIX}{job_id}"
     approval_key = f"{APPROVAL_PREFIX}{job_id}"
 
     task_data = {
         "job_id": job_id,
-        "query": "Consulta de integración",
+        "query": "Integration query",
         "status": "pending",
         "result": None,
         "error": None,
@@ -157,7 +157,7 @@ async def test_approve_rechaza_tarea_que_no_espera_aprobacion(redis_client, asyn
             f"/approve/{job_id}",
             json={
                 "decision": "approve",
-                "feedback": "La respuesta es correcta.",
+                "feedback": "The response is correct.",
             },
         )
 
@@ -179,7 +179,7 @@ async def test_approve_rechaza_tarea_que_no_espera_aprobacion(redis_client, asyn
 
 
 @pytest.mark.asyncio
-async def test_approve_devuelve_404_para_job_inexistente(redis_client, async_client):
+async def test_approve_returns_404_for_nonexistent_job(redis_client, async_client):
     job_id = f"missing-{uuid.uuid4()}"
     status_key = f"{STATUS_PREFIX}{job_id}"
     approval_key = f"{APPROVAL_PREFIX}{job_id}"
@@ -191,7 +191,7 @@ async def test_approve_devuelve_404_para_job_inexistente(redis_client, async_cli
             f"/approve/{job_id}",
             json={
                 "decision": "approve",
-                "feedback": "La respuesta es correcta.",
+                "feedback": "The response is correct.",
             },
         )
 
@@ -212,7 +212,7 @@ async def test_approve_devuelve_404_para_job_inexistente(redis_client, async_cli
         await redis_client.lrem(APPROVAL_QUEUE, 0, job_id)
 
 @pytest.mark.asyncio
-async def test_process_rechaza_request_invalido_sin_crear_tarea(redis_client, async_client):
+async def test_process_rejects_invalid_request_without_creating_task(redis_client, async_client):
     initial_queue_length = await redis_client.llen(QUEUE_NAME)
 
     initial_status_keys = set(
