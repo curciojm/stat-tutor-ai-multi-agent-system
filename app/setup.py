@@ -5,8 +5,8 @@ from app.chunking import DocumentProcessor
 from app.db_config import NAMESPACE
 
 
-def procesamiento_desde_pdfs():
-    print("📄 Pinecone vacío. Procesando PDFs...")
+def pdf_processing():
+    print("📄 Pinecone empty. Processing PDFs...")
 
     loader = DirectoryLoader(
         "data",
@@ -14,42 +14,42 @@ def procesamiento_desde_pdfs():
         loader_cls=PyPDFLoader
     )
 
-    documentos_crudos = loader.load()
+    raw_documments = loader.load()
 
     processor = DocumentProcessor()
 
-    return processor.process_document(documentos_crudos)
+    return processor.process_document(raw_documments)
 
-def recuperar_documentos_de_pinecone(index):
-    print("📦 Recuperando documentos desde Pinecone...")
+def retrieve_pinecone_documents(index):
+    print("📦 Retrieving documents from pinecone...")
 
     ids = []
 
-    for pagina in index.list(namespace=NAMESPACE):
-        ids.extend(pagina)
+    for page in index.list(namespace=NAMESPACE):
+        ids.extend(page)
 
-    documentos = []
+    documents = []
 
     batch_size = 100
 
     for i in range(0, len(ids), batch_size):
         batch_ids = ids[i:i + batch_size]
 
-        registros = index.fetch(
+        fetched_vectors = index.fetch(
             ids=batch_ids,
             namespace=NAMESPACE
         )
 
-        for vector in registros.vectors.values():
+        for vector in fetched_vectors.vectors.values():
             metadata = vector.metadata
 
-            documentos.append(
+            documents.append(
                 Document(
                     page_content=metadata["text"],
                     metadata=metadata
                 )
             )
 
-    print(f"📄 Documentos recuperados: {len(documentos)}")
+    print(f"📄 Retrieved documents: {len(documents)}")
 
-    return documentos
+    return documents

@@ -28,37 +28,37 @@ redis_client = aioredis.from_url(
     decode_responses=True
 )
 
-logger.info("Configurando Phoenix...")
+logger.info("Initializing Phoenix...")
 configurar_observabilidad()
-logger.info("Phoenix configurado correctamente.")
+logger.info("Phoenix successfully initializated.")
 
-async def guardar_evento_humano(job_id: str, decision: str, feedback: str):
+async def save_human_event(job_id: str, desition: str, feedback: str):
     """
-    Guarda cada intervención humana en Redis.
+    Store each human interaction in Redis.
 
-    Se utiliza una lista para conservar todas las
-    intervenciones realizadas durante el workflow.
+    A list is used to preserve all interactions
+    performed throughout the workflow.
     """
 
-    evento = {
-        "tipo": "HumanApproval",
-        "decision": decision,
+    event = {
+        "type": "HumanApproval",
+        "desition": desition,
         "feedback": feedback,
     }
 
     await redis_client.rpush(
         f"{HUMAN_EVENTS_PREFIX}{job_id}",
         json.dumps(
-            evento,
+            event,
             ensure_ascii=False
         ),
     )
 
 
-async def obtener_eventos_humanos(job_id: str) -> list[dict]:
+async def get_human_events(job_id: str) -> list[dict]:
     """
-    Recupera todas las intervenciones humanas
-    registradas para el job.
+    Retrieve all human interactions recorded
+    for the job.
     """
 
     raw_events = await redis_client.lrange(
@@ -68,11 +68,11 @@ async def obtener_eventos_humanos(job_id: str) -> list[dict]:
     )
 
     return [
-        json.loads(evento)
-        for evento in raw_events
+        json.loads(event)
+        for event in raw_events
     ]
 
-async def procesar_aprobacion(job_id, app):
+async def approval_processing(job_id, app):
     key = f"{STATUS_PREFIX}{job_id}"
 
     raw_data = await redis_client.get(key)
@@ -109,7 +109,7 @@ async def procesar_aprobacion(job_id, app):
 
     approval_data = json.loads(raw_approval)
 
-    decision = approval_data["decision"]
+    desition = approval_data["desition"]
     feedback = approval_data["feedback"]
 
     try:
@@ -117,12 +117,12 @@ async def procesar_aprobacion(job_id, app):
         logger.info(
             "Human decision received for job %s: decision=%s",
             job_id,
-            decision
+            desition
             )
 
-        await guardar_evento_humano(
+        await save_human_event(
             job_id=job_id,
-            decision=decision,
+            decision=desition,
             feedback=feedback,
         )
 
@@ -133,17 +133,17 @@ async def procesar_aprobacion(job_id, app):
             "recursion_limit": 10,
         }
 
-        resultado = await app.ainvoke(
+        result = await app.ainvoke(
             Command(
                 resume={
-                    "decision": decision,
+                    "desition": desition,
                     "feedback": feedback,
                 }
             ),
             config=config,
         )
 
-        if "__interrupt__" in resultado:
+        if "__interrupt__" in result:
 
             task_data["status"] = "waiting_approval"
             task_data["result"] = None
@@ -154,23 +154,23 @@ async def procesar_aprobacion(job_id, app):
 
         else:
 
-            eventos_humanos = await obtener_eventos_humanos(
+            eventos_humanos = await get_human_events(
                 job_id
             )
 
-            traza = serializar_traza(
-                resultado["messages"]
+            trace = serializar_traza(
+                result["messages"]
             )
 
-            traza.extend(eventos_humanos)
+            trace.extend(eventos_humanos)
 
             guardar_traza(
-                traza,
+                result,
                 job_id
             )
 
             response = (
-                resultado["messages"][-1].content
+                result["messages"][-1].content
             )
 
             task_data["status"] = "completed"
@@ -258,7 +258,7 @@ async def main_worker():
 
                 try:
 
-                    resultado = await app.ainvoke(
+                    result = await app.ainvoke(
                         {
                             "messages": [
                                 HumanMessage(
@@ -270,7 +270,7 @@ async def main_worker():
                         config=config,
                     )
 
-                    if "__interrupt__" in resultado:
+                    if "__interrupt__" in result:
 
 
                         task_data["status"] = (
@@ -287,7 +287,7 @@ async def main_worker():
                     else:
 
                         traza = serializar_traza(
-                            resultado["messages"]
+                            result["messages"]
                         )
 
                         guardar_traza(
@@ -296,7 +296,7 @@ async def main_worker():
                         )
 
                         response = (
-                            resultado["messages"][-1]
+                            result["messages"][-1]
                             .content
                         )
 
@@ -353,7 +353,7 @@ async def main_worker():
                     approval_job_id,
                 )
 
-                await procesar_aprobacion(
+                await approval_processing(
                     approval_job_id,
                     app
                 )

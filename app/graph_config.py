@@ -10,20 +10,20 @@ from app.hitl import human_approval
 from app.schemas import AgentState
 
 
-def enrutar(state: AgentState) -> Literal["profesor", "evaluador", "sintesis"]:
+def ruting(state: AgentState) -> Literal["teacher", "evaluator", "synthesis"]:
 
     if state["next_agent"] == "FINISH":
-        return "sintesis"
+        return "synthesis"
 
     return state["next_agent"]
 
 
-def enrutar_aprobacion(state: AgentState) -> Literal["evaluador"]:
-    return "evaluador"
+def ruting_approval(state: AgentState) -> Literal["evaluator"]:
+    return "evaluator"
 
-def enrutar_despues_evaluador(state: AgentState) -> Literal["supervisor", "human_approval"]:
+def ruting_after_evaluator(state: AgentState) -> Literal["supervisor", "human_approval"]:
 
-    if state.get("revision_humana", False):
+    if state.get("human_review", False):
         return "human_approval"
 
     return "supervisor"
@@ -32,9 +32,9 @@ def enrutar_despues_evaluador(state: AgentState) -> Literal["supervisor", "human
 grafo = StateGraph(AgentState)
 
 grafo.add_node("supervisor", nodo_supervisor)
-grafo.add_node("profesor", nodo_profesor)
-grafo.add_node("evaluador", nodo_evaluador)
-grafo.add_node("sintesis", nodo_sintesis)
+grafo.add_node("teacher", nodo_profesor)
+grafo.add_node("evaluator", nodo_evaluador)
+grafo.add_node("synthesis", nodo_sintesis)
 grafo.add_node("human_approval", human_approval)
 
 
@@ -43,33 +43,33 @@ grafo.add_edge(START, "supervisor")
 
 grafo.add_conditional_edges(
     "supervisor",
-    enrutar,
+    ruting,
     {
-        "profesor": "profesor",
-        "evaluador": "human_approval",
-        "sintesis": "sintesis",
+        "teacher": "teacher",
+        "evaluator": "human_approval",
+        "synthesis": "synthesis",
     },
 )
 
 
-grafo.add_edge("profesor", "supervisor")
+grafo.add_edge("teacher", "supervisor")
 
 
 grafo.add_conditional_edges(
     "human_approval",
-    enrutar_aprobacion,
+    ruting_approval,
     {
-        "evaluador": "evaluador",
+        "evaluator": "evaluator",
     },
 )
 
 grafo.add_conditional_edges(
-    "evaluador",
-    enrutar_despues_evaluador,
+    "evaluevaluatorador",
+    ruting_after_evaluator,
     {
         "supervisor": "supervisor",
         "human_approval": "human_approval",
     },
 )
 
-grafo.add_edge("sintesis", END)
+grafo.add_edge("synthesis", END)

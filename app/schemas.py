@@ -9,68 +9,67 @@ from pydantic import BaseModel, Field
 
 class AgentState(MessagesState):
 
-    """Hereda 'messages' y suma los campos propios del workflow."""
 
     job_id: Optional[str]
 
     approval: Optional[bool]
 
-    feedback_humano: Optional[str]
+    human_feedback: Optional[str]
 
-    revision_humana: bool
+    human_review: bool
 
     next_agent: Optional[str]
 
-    contribuciones: Annotated[List[Dict[str, str]], add]
+    contribution: Annotated[List[Dict[str, str]], add]
 
-    pasos: int
+    steps: int
 
     task_completed: bool
 
-    revisiones: int
+    reviews: int
 
 class ApprovalRequest(BaseModel):
-    decision: Literal["approve", "reject"]
+    desition: Literal["approve", "reject"]
     feedback: str = ""
 
-class DecisionSupervisor(BaseModel):
+class DesitionSupervisor(BaseModel):
 
-    next: Literal["profesor", "evaluador", "FINISH"] = Field(
+    next: Literal["teacher", "evaluator", "FINISH"] = Field(
         description=(
-            "Próximo agente a invocar, o FINISH si la tarea ya está completa."
+            "Next agent to invoce, or FINISH if the task is completed."
         )
     )
 
-    razon: str = Field(
-        description="Breve justificación de la decisión."
+    reason: str = Field(
+        description="Brief justification of the desition."
     )
 
-class ResultadoConcepto(BaseModel):
+class ConceptResult(BaseModel):
 
-    contenido: str = Field(
-        description="Contenido relevante recuperado del documento."
+    content: str = Field(
+        description="Relevant content of the document retrieval."
     )
 
 
-class ResultadoFuente(BaseModel):
+class SourceResult(BaseModel):
 
-    fuente: str = Field(
-        description="Fuente bibliográfica del documento."
+    source: str = Field(
+        description="Bibliographic source."
     )
 
-    pagina: int = Field(
-        description="Número entero de página donde aparece la información."
+    page: int = Field(
+        description="Page number of the source."
     )
 
-class ResultadoEvaluacion(BaseModel):
+class EvaluationResult(BaseModel):
 
-    evaluacion: Literal["Mal", "Incompleta", "Bien", "Muy bien"] = Field(
-        description="Evaluación del conocimiento del usuario sobre el concepto."
+    evaluation: Literal["Wrong", "Incomplete", "Good", "Very good"] = Field(
+        description="User knowledge evaluation."
     )
 
-    mejora: str = Field(
+    improve: str = Field(
         description=(
-            "Cómo puede mejorar su respuesta. "
+            "How the answer could be improved. "
             "Si es Muy bien, indicar que no necesita mejoras."
         )
     )
@@ -92,7 +91,7 @@ class TaskResponse(BaseModel):
 
 # Errors
 class LLMErrorType(str, Enum):
-    """Tipos de errores utilizados para clasificar las excepciones."""
+    """Error types."""
 
     RATE_LIMIT = "rate_limit"
     UNKNOWN = "unknown"
@@ -100,7 +99,7 @@ class LLMErrorType(str, Enum):
 
 
 class LLMError(Exception):
-    """Permite clasificar el error y proporcionar un mensaje legible al usuario."""
+    """Allows to classificate the error and send a message to the user."""
 
     def __init__(self, error_type: str, message: str):
         self.error_type = error_type

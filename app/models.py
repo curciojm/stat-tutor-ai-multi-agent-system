@@ -26,4 +26,4 @@ def get_model(provider: str):
             max_tokens=500,
         )
 
-    raise ValueError(f"Proveedor no soportado: {provider}")
+    raise ValueError(f"Provider not supported: {provider}")

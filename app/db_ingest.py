@@ -49,10 +49,10 @@ async def setup_vector_infrastructure(
 
     if vector_count == 0:
 
-        documentos_procesados = procesamiento_desde_pdfs()
+        processed_documents = procesamiento_desde_pdfs()
 
         vectorstore = PineconeVectorStore.from_documents(
-            documents=documentos_procesados,
+            documents=processed_documents,
             embedding=EMBEDDINGS,
             index_name=INDEX_NAME,
             namespace=NAMESPACE,
@@ -60,7 +60,7 @@ async def setup_vector_infrastructure(
 
     else:
 
-        documentos_procesados = recuperar_documentos_de_pinecone(index)
+        processed_documents = recuperar_documentos_de_pinecone(index)
 
         vectorstore = PineconeVectorStore(
             index_name=INDEX_NAME,
@@ -69,15 +69,15 @@ async def setup_vector_infrastructure(
         )
 
     print(
-        "📦 Vectores en el namespace:",
+        "📦 Vectors in namespace:",
         stats["namespaces"].get(NAMESPACE, {})
     )
 
-    print(f"Estado del índice: {stats}")
+    print(f"Index state: {stats}")
 
-    return index, vectorstore, documentos_procesados
+    return index, vectorstore, processed_documents
 
 
-index, vectorstore, documentos_procesados = asyncio.run(
+index, vectorstore, processed_documents = asyncio.run(
     setup_vector_infrastructure(INDEX_NAME, DIMENSIONS)
 )

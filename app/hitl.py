@@ -2,17 +2,17 @@ from langgraph.types import interrupt
 
 
 def human_approval(state):
-    decision = interrupt(
+    desition = interrupt(
         {
-            "message": "Se requiere aprobación humana para ejecutar la evaluación.",
+            "message": "Requieres human approval to execute the evaluation.",
             "job_id": state["job_id"],
         }
     )
 
-    aprobado = decision["decision"] == "approve"
+    approve = desition["desition"] == "approve"
 
     return {
-        "approval": aprobado,
-        "feedback_humano": decision.get("feedback", ""),
-        "revision_humana": not aprobado,
+        "approval": approve,
+        "human_feedback": desition.get("feedback", ""),
+        "human_review": not approve,
     }

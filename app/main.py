@@ -15,7 +15,7 @@ APPROVAL_QUEUE = "multiagent_approvals"
 APPROVAL_PREFIX = "approval_data:"
 
 
-app = FastAPI(title="Entrega Final - Intelligent System")
+app = FastAPI(title="Stat-tutor")
 
 
 redis_client = aioredis.from_url(
@@ -105,7 +105,7 @@ async def approve_task(
         )
 
     approval_data = {
-        "decision": request.decision,
+        "desition": request.decision,
         "feedback": request.feedback,
     }
 
@@ -122,7 +122,7 @@ async def approve_task(
     logger.info(
         "Human approval submitted for job %s: decision=%s",
         job_id,
-        request.decision
+        request.desition
     )
 
     return {

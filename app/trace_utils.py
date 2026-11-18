@@ -4,59 +4,59 @@ from pathlib import Path
 from langchain_core.messages import AIMessage, ToolMessage
 
 
-def extraer_texto(mensaje) -> str:
-    """Normaliza el contenido de un mensaje."""
-    contenido = mensaje.content
+def extract_text(message) -> str:
+    """Normalized message content."""
+    content = message.content
 
-    if isinstance(contenido, str):
-        return contenido
+    if isinstance(content, str):
+        return message
 
-    if isinstance(contenido, list):
+    if isinstance(content, list):
         return "".join(
-            bloque.get("text", "")
-            for bloque in contenido if isinstance(bloque, dict)
+            block.get("text", "")
+            for block in content if isinstance(block, dict)
         )
 
-    return str(contenido)
+    return str(content)
 
-def serializar_traza(mensajes) -> list[dict]:
-    """Convierte los mensajes de LangGraph a un formato JSON simple."""
+def serializar_traza(message) -> list[dict]:
+    """Transform langraph messages to json."""
     traza = []
 
-    for mensaje in mensajes:
+    for message in messages:
         entrada = {
-            "tipo": type(mensaje).__name__,
-            "contenido": extraer_texto(mensaje),
+            "type": type(message).__name__,
+            "content": extract_text(message),
         }
 
-        if getattr(mensaje, "name", None):
-            entrada["agente"] = mensaje.name
+        if getattr(message, "name", None):
+            entrada["agente"] = message.name
 
-        if isinstance(mensaje, AIMessage) and mensaje.tool_calls:
+        if isinstance(message, AIMessage) and message.tool_calls:
             entrada["tool_calls"] = [
                 {
                     "nombre": tool_call["name"],
                     "argumentos": tool_call["args"],
                 }
-                for tool_call in mensaje.tool_calls
+                for tool_call in message.tool_calls
             ]
 
-        if isinstance(mensaje, ToolMessage):
-            entrada["herramienta"] = mensaje.name
+        if isinstance(message, ToolMessage):
+            entrada["herramienta"] = message.name
 
         traza.append(entrada)
 
     return traza
 
-def guardar_traza(traza: list[dict], thread_id: str) -> None:
-    """Guarda la traza ReAct de una conversación en formato JSON."""
-    ruta = Path("traces") / f"{thread_id}.json"
-    ruta.parent.mkdir(parents=True, exist_ok=True)
+def guardar_traza(trace: list[dict], thread_id: str) -> None:
+    """Save ReAct trace from a conversation in json format."""
+    path = Path("traces") / f"{thread_id}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(ruta, "w", encoding="utf-8") as archivo:
+    with open(path, "w", encoding="utf-8") as file:
         json.dump(
-            traza,
-            archivo,
+            trace,
+            file,
             ensure_ascii=False,
             indent=2,
         )

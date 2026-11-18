@@ -1,20 +1,20 @@
 from langchain_classic.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 
-from app.db_ingest import documentos_procesados, vectorstore
+from app.db_ingest import processed_documents, vectorstore
 
-retriever_bm25 = BM25Retriever.from_documents(
-    documentos_procesados
+bm25_retriever = BM25Retriever.from_documents(
+    processed_documents
 )
 
-retriever_bm25.k = 5
+bm25_retriever.k = 5
 
-retriever_vectorial = vectorstore.as_retriever(
+vectorial_retriever = vectorstore.as_retriever(
     search_kwargs={"k": 5},
 )
 
-# Los mejores resultados de Recall@5 y Precision@5 se obtuvieron con estos pesos (ver README.md).
-retriever_hibrido = EnsembleRetriever(
-    retrievers=[retriever_bm25, retriever_vectorial],
+# Weights assigned after evaluation
+hybrid_retriever = EnsembleRetriever(
+    retrievers=[bm25_retriever, vectorial_retriever],
     weights=[0.25, 0.75],
 )

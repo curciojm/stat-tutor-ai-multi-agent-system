@@ -4,67 +4,67 @@ from sklearn.metrics.pairwise import cosine_similarity
 from app.db_config import EMBEDDINGS
 from app.errors import classify_error
 from app.logging_config import logger
-from app.retriever import retriever_hibrido
-from app.schemas import ResultadoConcepto, ResultadoEvaluacion, ResultadoFuente
+from app.retriever import hybrid_retriever
+from app.schemas import ConceptResult, EvaluationResult, SourceResult
 
 
 @tool
-async def buscar_concepto(consulta: str) -> list[ResultadoConcepto]:
+async def search_concept(consulta: str) -> list[ConceptResult]:
     """
-    Busca información teórica sobre un concepto de estadística
-    y metodología.
+    Search for theoretical information about a concept in statistics
+    or research methodology.
 
-    Usar esta herramienta cuando el usuario solicite una definición
-    o explicación de un concepto.
+    Use this tool when the user requests a definition
+    or explanation of a concept.
 
-    Devuelve únicamente el contenido relevante.
+    Return only the relevant content.
     """
     try:
-        logger.info("Ejecutando buscar_concepto: %s", consulta)
+        logger.info("Executing search_concept: %s", consulta)
 
-        docs = await retriever_hibrido.ainvoke(consulta)
+        docs = await hybrid_retriever.ainvoke(consulta)
 
         return [
-            ResultadoConcepto(
-                contenido=doc.page_content,
+            ConceptResult(
+                content=doc.page_content,
             )
             for doc in docs[:5]
         ]
 
     except Exception as e:
         logger.exception(
-            "ERROR REAL en buscar_concepto"
+            "ERROR in search_concept"
         )
 
         error = classify_error(e)
 
         logger.error(
-            "Error durante la ejecución de buscar_concepto: %s",
+            "Error while search_concept was executing: %s",
             error.message,
         )
 
         raise error
 
 @tool
-async def buscar_fuente(tema: str) -> list[ResultadoFuente]:
+async def search_source(tema: str) -> list[SourceResult]:
     """
-    Busca en la base de conocimientos dónde se encuentra información
-    relevante sobre un tema de estadística y metodología.
+    Search the knowledge base to locate relevant information
+    about a topic in statistics or research methodology.
 
-    Usar esta herramienta cuando el usuario pregunte dónde encontrar
-    información, qué fuente consultar o en qué página aparece un tema.
+    Use this tool when the user asks where to find
+    information, which source to consult, or on which page a topic appears.
 
-    Devuelve la fuente y el número de página correspondiente.
+    Return the corresponding source and page number.
     """
     try:
-        logger.info("Ejecutando buscar_fuente: %s", tema)
+        logger.info("Executing search_source: %s", tema)
 
-        docs = await retriever_hibrido.ainvoke(tema)
+        docs = await hybrid_retriever.ainvoke(tema)
 
         return [
-            ResultadoFuente(
-                fuente=doc.metadata.get("fuente", "desconocida"),
-                pagina=int(doc.metadata.get("pagina", 0)),
+            SourceResult(
+                source=doc.metadata.get("source", "unknown"),
+                page=int(doc.metadata.get("pagina", 0)),
             )
             for doc in docs[:5]
         ]
@@ -72,87 +72,87 @@ async def buscar_fuente(tema: str) -> list[ResultadoFuente]:
     except Exception as e:
         error = classify_error(e)
         logger.error(
-            "Error durante la ejecución de buscar_fuente: %s",
+            "Error while search_source was executing: %s",
             error.message,
         )
         raise error
 
-UMBRAL_INCOMPLETA = 0.55
-UMBRAL_BIEN = 0.70
-UMBRAL_MUY_BIEN = 0.90
+THRESHOLD_INCOMPLETE = 0.55
+THRESHOLD_GOOD = 0.70
+THRESHOLD_VERY_GOOD = 0.90
 
 @tool
-async def evaluar_concepto(tema: str, respuesta_usuario: str) -> ResultadoEvaluacion:
+async def evaluate_concept(tema: str, user_response: str) -> EvaluationResult:
     """
-    Evalúa la respuesta del usuario sobre un concepto de estadística
-    o metodología mediante similitud semántica con información
-    recuperada de la base de conocimientos.
+    Evaluate the user's answer about a concept in statistics
+    or research methodology using semantic similarity with information
+    retrieved from the knowledge base.
 
-    La evaluación utiliza umbrales heurísticos establecidos con
-    fines educativos:
-        
-        0.00 - 0.54 → Mal
-        0.55 - 0.69 → Incompleta
-        0.70 - 0.89 → Bien
-        0.90 - 1.00 → Muy bien
+    The evaluation uses heuristic thresholds established
+    for educational purposes:
 
-    Estos umbrales no fueron calibrados empíricamente y la
-    similitud semántica no constituye por sí sola una medida
-    definitiva de la calidad conceptual de una respuesta.
+        0.00 - 0.54 → Poor
+        0.55 - 0.69 → Incomplete
+        0.70 - 0.89 → Good
+        0.90 - 1.00 → Very Good
+
+    These thresholds have not been empirically calibrated, and
+    semantic similarity alone does not constitute a definitive
+    measure of the conceptual quality of an answer.
     """
     try:
         logger.info(
-            "Ejecutando evaluar_concepto: %s",
+            "Executing evaluate_concept: %s",
             tema,
         )
 
-        docs = await retriever_hibrido.ainvoke(tema)
+        docs = await hybrid_retriever.ainvoke(tema)
 
-        embedding_respuesta = await EMBEDDINGS.aembed_query(
-            respuesta_usuario
+        embedding_response = await EMBEDDINGS.aembed_query(
+            user_response
         )
 
         embedding_docs = await EMBEDDINGS.aembed_documents(
             [doc.page_content for doc in docs]
         )
 
-        similitudes = cosine_similarity(
-            [embedding_respuesta],
+        similarity = cosine_similarity(
+            [embedding_response],
             embedding_docs
         )[0]
 
-        similitud = float(max(similitudes))
+        similarity = float(max(similarity))
         logger.info(
-            "Similitud semántica obtenida: %.3f",
-            similitud,
+            "The semantic similarity score was: %.3f",
+            similarity,
         )
 
-        if similitud < UMBRAL_INCOMPLETA:
-            evaluacion = "Mal"
-        elif similitud < UMBRAL_BIEN:
-            evaluacion = "Incompleta"
-        elif similitud < UMBRAL_MUY_BIEN:
-            evaluacion = "Bien"
+        if similarity < THRESHOLD_INCOMPLETE:
+            evaluation = "Poor"
+        elif similarity < THRESHOLD_GOOD:
+            evaluation = "Incomplete"
+        elif similarity < THRESHOLD_VERY_GOOD:
+            evaluation = "Good"
         else:
-            evaluacion = "Muy bien"
+            evaluation = "Very good"
 
-        return ResultadoEvaluacion(
-            evaluacion=evaluacion,
-            mejora=(
-                f"La similitud semántica obtenida fue "
-                f"{similitud:.2f}."
+        return EvaluationResult(
+            evaluation=evaluation,
+            improve=(
+                f"The semantic similarity score was "
+                f"{similarity:.2f}."
             ),
         )
     
     except Exception as e:
         logger.exception(
-            "ERROR REAL en evaluar_concepto"
+            "ERROR evaluate_concept"
     )
 
         error = classify_error(e)
 
         logger.error(
-            "Error durante la ejecución de evaluar_concepto: %s",
+            "Error while evaluate_concept was executing: %s",
             error.message,
         )
 
