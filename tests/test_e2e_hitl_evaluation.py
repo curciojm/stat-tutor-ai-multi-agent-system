@@ -67,7 +67,7 @@ def test_evaluation_with_human_approve():
                 timeout=15,
             )
             response.raise_for_status()
-            aprobaciones_enviadas += 1
+            approvals_send += 1
 
         elif state == "completed":
             break
@@ -77,7 +77,7 @@ def test_evaluation_with_human_approve():
                 f"The task failed. Detail: {task.get('error')}"
             )
             response.raise_for_status()
-            aprobaciones_enviadas += 1
+            approvals_send += 1
 
         elif state == "completed":
             break
@@ -94,7 +94,7 @@ def test_evaluation_with_human_approve():
         f"Último estado: {state}"
     )
 
-    assert aprobaciones_enviadas >= 1, ("The task end it with out human approval.")
+    assert approvals_send >= 1, ("The task end it with out human approval.")
 
     result = task.get("result")
     assert result, "The task end it with out result."
@@ -104,7 +104,7 @@ def test_evaluation_with_human_approve():
     else:
         text_result = str(result)
 
-    assert "evaluation:" in text_result, (
+    assert "Evaluation:" in text_result, (
         "The final result does not contain the expected classification. "
         f"Received result: {text_result}"
     )

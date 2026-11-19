@@ -58,7 +58,7 @@ async def test_process_approval_marks_failed_if_graph_fails():
     assert key_guardada == f"task_status:{job_id}"
     assert data_saved["status"] == "failed"
     assert data_saved["result"] is None
-    assert data_saved["error"] == "Evaluate a response about the mean."
+    assert data_saved["error"] == "Simulated graph error"
 
     fake_app.ainvoke.assert_awaited_once()
 
@@ -474,7 +474,7 @@ async def test_main_worker_marks_task_as_failed_if_graph_fails():
 
     fake_app = AsyncMock()
     fake_app.ainvoke.side_effect = Exception(
-        "Error simulado del graph"
+        "Error simulating the graph"
     )
 
     fake_graph = type(

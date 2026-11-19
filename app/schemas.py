@@ -63,7 +63,7 @@ class SourceResult(BaseModel):
 
 class EvaluationResult(BaseModel):
 
-    evaluation: Literal["Wrong", "Incomplete", "Good", "Very good"] = Field(
+    evaluation: Literal["Poor", "Incomplete", "Good", "Very good"] = Field(
         description="User knowledge evaluation."
     )
 

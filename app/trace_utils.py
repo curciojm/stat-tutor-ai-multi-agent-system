@@ -9,7 +9,7 @@ def extract_text(message) -> str:
     content = message.content
 
     if isinstance(content, str):
-        return message
+        return str(content)
 
     if isinstance(content, list):
         return "".join(
@@ -19,7 +19,7 @@ def extract_text(message) -> str:
 
     return str(content)
 
-def serialize_trace(message) -> list[dict]:
+def serialize_trace(messages) -> list[dict]:
     """Transform langraph messages to json."""
     traza = []
 

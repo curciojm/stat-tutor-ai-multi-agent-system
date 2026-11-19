@@ -552,10 +552,6 @@ A separate shell script for Linux is also included. However, **the Linux alterna
 7. Check the task status again until the final result is available.
 8. Inspect the execution in Phoenix and review the corresponding JSON trace.
 
-### Example video
-
-[Watch the example video](https://drive.google.com/file/d/1KVr_MlY7GyNQnINE-KtGg30BUCunMZRB/view?usp=sharing)
-
 ## Technologies
 
 - Python

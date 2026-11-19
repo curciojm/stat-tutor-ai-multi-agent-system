@@ -107,6 +107,11 @@ async def node_supervisor(state: AgentState) -> dict:
                 provider,
                 error.message,
             )
+            
+            logger.exception(
+                "The provider %s failed with an unexpected exception",
+                provider,
+            )
 
             continue
 

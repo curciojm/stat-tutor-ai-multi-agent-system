@@ -11,7 +11,7 @@ def test_evaluation_result_accepts_valid_category():
         improve="Could expand on the explanation.",
     )
 
-    assert result.evaluacion == "Good"
+    assert result.evaluation == "Good"
     assert result.improve == "Could expand on the explanation."
 
 

@@ -10,7 +10,7 @@ from app.hitl import human_approval
 from app.schemas import AgentState
 
 
-def ruting(state: AgentState) -> Literal["teacher", "evaluator", "synthesis"]:
+def routing(state: AgentState) -> Literal["teacher", "evaluator", "synthesis"]:
 
     if state["next_agent"] == "FINISH":
         return "synthesis"
@@ -18,10 +18,10 @@ def ruting(state: AgentState) -> Literal["teacher", "evaluator", "synthesis"]:
     return state["next_agent"]
 
 
-def ruting_approval(state: AgentState) -> Literal["evaluator"]:
+def routing_approval(state: AgentState) -> Literal["evaluator"]:
     return "evaluator"
 
-def ruting_after_evaluator(state: AgentState) -> Literal["supervisor", "human_approval"]:
+def routing_after_evaluator(state: AgentState) -> Literal["supervisor", "human_approval"]:
 
     if state.get("human_review", False):
         return "human_approval"
@@ -43,7 +43,7 @@ graph.add_edge(START, "supervisor")
 
 graph.add_conditional_edges(
     "supervisor",
-    ruting,
+    routing,
     {
         "teacher": "teacher",
         "evaluator": "human_approval",
@@ -57,7 +57,7 @@ graph.add_edge("teacher", "supervisor")
 
 graph.add_conditional_edges(
     "human_approval",
-    ruting_approval,
+    routing_approval,
     {
         "evaluator": "evaluator",
     },
@@ -65,7 +65,7 @@ graph.add_conditional_edges(
 
 graph.add_conditional_edges(
     "evaluator",
-    ruting_after_evaluator,
+    routing_after_evaluator,
     {
         "supervisor": "supervisor",
         "human_approval": "human_approval",

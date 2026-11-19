@@ -165,7 +165,7 @@ async def approval_processing(job_id, app):
             trace.extend(eventos_humanos)
 
             save_trace(
-                result,
+                trace,
                 job_id
             )
 

@@ -53,12 +53,12 @@ class DocumentProcessor:
 
             filename_no_extension = os.path.splitext(filename)[0]
 
-            soruce, category = filename_no_extension.split(
+            source, category = filename_no_extension.split(
                 ",",
                 maxsplit=1
             )
 
-            chunk.metadata["soruce"] = soruce.strip()
+            chunk.metadata["source"] = source.strip()
 
             chunk.metadata["page"] = int(chunk.metadata["page"]) + 1
             

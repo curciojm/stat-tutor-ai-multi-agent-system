@@ -64,8 +64,8 @@ def test_process_document_add_metadata():
 
     metadata = chunks[0].metadata
 
-    assert metadata["source"] == "Statistics"
-    assert metadata["category"] == "correlation"
+    assert metadata["source"] == "Estadística"
+    assert metadata["category"] == "correlacion"
     assert metadata["page"] == 1
     assert metadata["chunk_id"] == 0
     assert isinstance(metadata["chunk_id"], int)
