@@ -4,7 +4,7 @@ An AI-powered academic tutoring system for Statistics and Research Methodology, 
 
 This repository contains the AI and RAG backend of **TeMa**, built with LangGraph, FastAPI, Redis, and Pinecone. It evolves the project's original Django-based implementation into an asynchronous, multi-agent architecture.
 
-**Previous implementation:** [TeMa — Django-based application](tema-production-31a3.up.railway.app)
+**Previous implementation:** [TeMa — Django-based application](https://tema-production-31a3.up.railway.app)
 
 ---
 
@@ -88,10 +88,10 @@ flowchart TD
     S -->|Conceptual question| P[Teacher Agent]
     S -->|Answer evaluation| E[Evaluator Agent]
 
-    P --> TC[buscar_concepto]
-    P --> TF[buscar_fuente]
+    P --> TC[search_concept]
+    P --> TF[search_source]
 
-    E --> TE[evaluar_concepto]
+    E --> TE[evaluate_concept]
     E --> TC
     E --> TF
 
@@ -136,9 +136,9 @@ This retrieval system supports the agents in finding definitions, theoretical ex
 
 | Tool | Function |
 |---|---|
-| `buscar_concepto` | Retrieves relevant theoretical content to explain a concept. |
-| `buscar_fuente` | Retrieves bibliographic information and page numbers. |
-| `evaluar_concepto` | Semantically compares the user's answer with retrieved content. |
+| `search_concept` | Retrieves relevant theoretical content to explain a concept. |
+| `search_source` | Retrieves bibliographic information and page numbers. |
+| `evaluate_concept` | Semantically compares the user's answer with retrieved content. |
 
 The evaluation tool uses heuristic thresholds to assign one of four categories: `Poor`, `Incomplete`, `Good`, and `Very Good`.
 
@@ -227,8 +227,8 @@ The Supervisor uses structured output through the `DecisionSupervisor` model to 
 
 Possible routing decisions are:
 
-- `profesor`
-- `evaluador`
+- `teacher`
+- `evaluator`
 - `FINISH`
 
 The graph also implements a maximum step limit to prevent excessive execution cycles. Agents support fallback mechanisms between configured LLM providers when applicable.
@@ -239,7 +239,7 @@ The Teacher Agent uses retrieval tools to locate relevant information and genera
 
 ### Evaluator Agent
 
-The Evaluator Agent uses `evaluar_concepto` to obtain an initial evaluation category. It can also retrieve additional theoretical content and bibliographic references.
+The Evaluator Agent uses `evaluate_concept` to obtain an initial evaluation category. It can also retrieve additional theoretical content and bibliographic references.
 
 When human feedback is received, the agent reassesses the answer using the provided observations.
 
@@ -580,10 +580,10 @@ The main functional structure is:
 .
 ├── app/
 │   ├── agents/
-│   │   ├── profesor.py
-│   │   ├── evaluador.py
+│   │   ├── teacher.py
+│   │   ├── evaluator.py
 │   │   ├── supervisor.py
-│   │   └── sintesis.py
+│   │   └── synthesis.py
 │   ├── chunking.py
 │   ├── db_config.py
 │   ├── db_ingest.py
@@ -608,8 +608,8 @@ The main functional structure is:
 │       ├── golden_set.json
 │       ├── figures.ipynb
 │       ├── results/
-│       │   ├── preentrega4_datos_precision.csv
-│       │   └── preentrega4_datos_recall.csv
+│       │   ├── data_precision.csv
+│       │   └── data_recall.csv
 │       └── figures/
 │           ├── recall_at_5.png
 │           └── precision_at_5.png
