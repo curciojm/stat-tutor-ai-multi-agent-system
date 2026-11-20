@@ -493,7 +493,7 @@ Create a `.env` file using `.env.example` as a reference, and provide the requir
 
 ```dotenv
 # Models
-GOOGLE_API_KEY=your_google_api_key
+GEMINI_API_KEY=your_google_api_key
 OPENAI_API_KEY=your_openai_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key
 
